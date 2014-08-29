@@ -1,0 +1,3 @@
+foreach file (`find -L klee-last -name "*.ktest"`)
+  ktest-tool --write-ints $file
+end
