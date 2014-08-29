@@ -1,0 +1,245 @@
+OVERVIEW:  klee
+
+USAGE: klee [options] <input bytecode> <program arguments>...
+
+OPTIONS:
+  -all-external-warnings                  - 
+  -allow-external-sym-calls               - Allow calls with symbolic arguments to external functions.  This concretizes the symbolic arguments.  (default=off)
+  -allow-seed-extension                   - Allow extra (unbound) values to become symbolic during seeding.
+  -allow-seed-truncation                  - Allow smaller buffers than in seeds.
+  -always-output-seeds                    - 
+  -asm-verbose                            - Add comments to directives.
+  -batch-instructions=<uint>              - Number of instructions to batch when using --use-batching-search
+  -batch-time=<number>                    - Amount of time to batch when using --use-batching-search
+  -cex-cache-exp                          - 
+  -cex-cache-try-all                      - try substituting all counterexamples before asking STP
+  -check-div-zero                         - Inject checks for division-by-zero
+  -code-model                             - Choose code model
+    =default                              -   Target default code model
+    =small                                -   Small code model
+    =kernel                               -   Kernel code model
+    =medium                               -   Medium code model
+    =large                                -   Large code model
+  -const-array-opt                        - Enable various optimizations involving all-constant arrays.
+  -debug-cex-cache-check-binding          - 
+  -debug-check-for-implied-values         - 
+  -debug-log-merge                        - 
+  -debug-log-state-merge                  - 
+  -debug-print-escaping-functions         - Print functions whose address is taken.
+  -debug-print-instructions               - Print instructions during execution.
+  -debug-validate-solver                  - 
+  -disable-excess-fp-precision            - Disable optimizations that may increase FP precision
+  -disable-fp-elim                        - Disable frame pointer elimination optimization
+  -disable-inlining                       - Do not run the inliner pass
+  -disable-internalize                    - Do not mark all symbols as internal
+  -disable-non-leaf-fp-elim               - Disable frame pointer elimination optimization for non-leaf funcs
+  -disable-opt                            - Do not run any optimization passes
+  -disable-spill-fusing                   - Disable fusing of spill code into instructions
+  -dump-states-on-halt                    - Dump test cases for all active states on exit (default=on)
+  -emit-all-errors                        - Generate tests cases for all errors (default=off, i.e. one per (error,instruction) pair)
+  -enable-all-optimizations               - Also enable optimizations that may create intrinsics not handled by KLEE
+  -enable-correct-eh-support              - Make the -lowerinvoke pass insert expensive, but correct, EH code
+  -enable-fp-mad                          - Enable less precise MAD instructions to be generated
+  -enable-load-pre                        - 
+  -enable-no-infs-fp-math                 - Enable FP math optimizations that assume no +-Infs
+  -enable-no-nans-fp-math                 - Enable FP math optimizations that assume no NaNs
+  -enable-tbaa                            - 
+  -enable-unsafe-fp-math                  - Enable optimizations that may decrease FP precision
+  -environ=<string>                       - Parse environ from given file (in "env" format)
+  -every-access                           - ZEST searcher treats all memory accesses as sensitive (default true)
+  -exit-on-error                          - Exit if errors occur
+  -fdata-sections                         - Emit data into separate sections
+  -ffunction-sections                     - Emit functions into separate sections
+  -float-abi                              - Choose float ABI type
+    =default                              -   Target default float ABI type
+    =soft                                 -   Soft float ABI (implied by -soft-float)
+    =hard                                 -   Hard float ABI (uses FP registers)
+  -help                                   - Display available options (-help-hidden for more)
+  -internalize-public-api-file=<filename> - A file containing list of symbol names to preserve
+  -internalize-public-api-list=<list>     - A list of symbol names to preserve
+  -istats-write-interval=<number>         - Approximate number of seconds between istats writes (default: 10.0)
+  -jit-emit-debug                         - Emit debug information to debugger
+  -jit-enable-eh                          - Emit exception handling information
+  -join-liveintervals                     - Coalesce copies (default=true)
+  -lest-max-branch-time=<number>          - Maximum execution time on each top-level branch (default disabled (0))
+  -libc                                   - Choose libc version (none by default).
+    =none                                 -   Don't link in a libc
+    =klee                                 -   Link in klee libc
+    =uclibc                               -   Link in uclibc (adapted for klee)
+  -limit-float-precision=<uint>           - Generate low-precision inline sequences for some float libcalls
+  -load=<pluginfilename>                  - Load the specified plugin
+  -make-concrete-symbolic=<uint>          - Rate at which to make concrete reads symbolic (0=off)
+  -max-cex-size=<uint>                    - 
+  -max-depth=<uint>                       - Only allow this many symbolic branches (default=0 (off))
+  -max-forks=<uint>                       - Only fork this many times (default=-1 (off))
+  -max-instruction-time=<number>          - Only allow a single instruction to take this much time (default=0s (off)). Enables --use-forked-stp
+  -max-memory=<uint>                      - Refuse to fork when above this amount of memory (in MB, default=2000)
+  -max-memory-inhibit                     - Inhibit forking at memory cap (vs. random terminate) (default=on)
+  -max-static-cpfork-pct=<number>         - 
+  -max-static-cpsolve-pct=<number>        - 
+  -max-static-fork-pct=<number>           - 
+  -max-static-solve-pct=<number>          - 
+  -max-stp-time=<number>                  - Maximum amount of time for a single query (default=0s (off)). Enables --use-forked-stp
+  -max-sym-array-size=<uint>              - 
+  -max-time=<number>                      - Halt execution after the specified number of seconds (0=off)
+  -merge-at-exit=<string>                 - 
+  -min-query-time-to-log=<milliseconds>   - Set time threshold (in ms) for queries logged in files. Only queries longer than threshold will be logged. (default=0). Set this param to a negative value to log timeouts only.
+  -named-seed-matching                    - Use names to match symbolic objects to inputs.
+  -no-externals                           - Do not allow external function calls (default=off)
+  -no-output                              - Don't generate test files
+  -no-prefer-cex                          - 
+  -no-std-out                             - do not output to standard output or standard error (only to messages and warnings file)
+  -no-truncate-source-lines               - Don't truncate long lines in the output source
+  -nozero-initialized-in-bss              - Don't place zero-initialized symbols into bss section
+  -only-output-states-covering-new        - Only output test cases covering new code.
+  -only-replay-seeds                      - Discard states that do not have a seed.
+  -only-seed                              - Stop execution after seeding is done without doing regular search.
+  -optimize                               - Optimize before execution
+  -output-dir=<string>                    - Directory to write results in (defaults to klee-out-N)
+  -output-istats                          - Write instruction level statistics (in callgrind format)
+  -output-level                           - Chose the output level for test cases (all by default).
+    =all                                  -   Create ktest files for all paths
+    =error                                -   Create ktest files only for errors
+    =none                                 -   Don't create ktest files
+  -output-module                          - Write the bitcode for the final transformed module
+  -output-source                          - Write the assembly for the final transformed source
+  -output-stats                           - Write running stats trace file
+  -patch-check-before=<uint>              - start symbex n inst/branches before the patch. Equivalent to --symbex-before-by=n --zest-search-until=n --use-symbex=1 --use-zest-search --zest-search-heuristic=br Only works (well) with branch distance heuristic (--zest-search-heuristic=br)
+  -patch-manual-branch                    - Don't automatically fork on every branch. Code must be manually instrumented with enable_seeding intrinsic calls.
+  -pc-all-const-widths                    - 
+  -pc-all-widths                          - 
+  -pc-multibyte-reads                     - 
+  -pc-prefix-width                        - 
+  -pc-width-as-arg                        - 
+  -posix-runtime                          - Link with POSIX runtime.  Options that can be passed as arguments to the programs are: --sym-argv <max-len>  --sym-argvs <min-argvs> <max-argvs> <max-len> + file model options
+  -pre-RA-sched                           - Instruction schedulers available (before register allocation):
+    =list-td                              -   Top-down list scheduler
+    =list-ilp                             -   Bottom-up register pressure aware list scheduling which tries to balance ILP and register pressure
+    =list-hybrid                          -   Bottom-up register pressure aware list scheduling which tries to balance latency and register pressure
+    =source                               -   Similar to list-burr but schedules in source order when possible
+    =list-tdrr                            -   Top-down register reduction list scheduling
+    =list-burr                            -   Bottom-up register reduction list scheduling
+    =default                              -   Best scheduler for the target
+  -print-after                            - Print IR after specified passes
+  -print-after-all                        - Print IR after each pass
+  -print-before                           - Print IR before specified passes
+  -print-before-all                       - Print IR before each pass
+  -print-machineinstrs                    - Print generated machine code
+  -randomize-fork                         - Randomly swap the true and false states on a fork (default=off)
+  -read-args=<string>                     - File to read arguments from (one arg per line)
+  -realign-stack                          - Realign stack if needed
+  -regalloc                               - Register allocator to use
+    =default                              -   pick register allocator based on -O option
+    =fast                                 -   fast register allocator
+    =linearscan                           -   linear scan register allocator
+  -relocation-model                       - Choose relocation model
+    =default                              -   Target default relocation model
+    =static                               -   Non-relocatable code
+    =pic                                  -   Fully relocatable, position independent code
+    =dynamic-no-pic                       -   Relocatable external references, non-relocatable code
+  -replay-keep-symbolic                   - Replay the test cases only by assertingthe bytes, not necessarily making them concrete.
+  -replay-out=<out file>                  - Specify an out file to replay
+  -replay-out-dir=<output directory>      - Specify a directory to replay .out files from
+  -replay-path=<path file>                - Specify a path file to replay
+  -reserve-fds                            - 
+  -rewriter                               - Rewriter to use (default=local)
+    =local                                -   local rewriter
+    =trivial                              -   trivial rewriter
+  -run-in=<string>                        - Change to the given directory prior to executing
+  -schedule-spills                        - Schedule spill code
+  -search                                 - Specify the search heuristic (default=random-path interleaved with nurs:covnew)
+    =dfs                                  -   use Depth First Search (DFS)
+    =random-state                         -   randomly select a state to explore
+    =random-path                          -   use Random Path Selection (see OSDI'08 paper)
+    =nurs:covnew                          -   use Non Uniform Random Search (NURS) with Coverage-New
+    =zest                                 -   use zest search
+    =nurs:md2u                            -   use NURS with Min-Dist-to-Uncovered
+    =nurs:depth                           -   use NURS with 2^depth
+    =nurs:icnt                            -   use NURS with Instr-Count
+    =nurs:cpicnt                          -   use NURS with CallPath-Instr-Count
+    =nurs:qc                              -   use NURS with Query-Cost
+  -seed-out=<string>                      - 
+  -seed-out-dir=<string>                  - 
+  -seed-time=<number>                     - Amount of time to dedicate to seeds, before normal search (default=0 (off))
+  -shrink-wrap                            - Shrink wrap callee-saved register spills/restores
+  -simple-constraint-management           - 
+  -simplify-sym-indices                   - 
+  -smtlib-display-constants               - Sets how bitvector constants are written in generated SMT-LIBv2 files (default=dec)
+    =bin                                  -   Use binary form (e.g. #b00101101)
+    =hex                                  -   Use Hexadecimal form (e.g. #x2D)
+    =dec                                  -   Use decimal form (e.g. (_ bv45 8) )
+  -smtlib-human-readable                  - Enables generated SMT-LIBv2 files to be human readable (default=off)
+  -smtlib-use-let-expressions             - Enables generated SMT-LIBv2 files to use (let) expressions (default=on)
+  -soft-float                             - Generate software floating point library calls
+  -spiller                                - Spiller to use: (default: standard)
+    =trivial                              -   trivial spiller
+    =standard                             -   default spiller
+    =inline                               -   inline spiller
+  -stack-alignment=<uint>                 - Override default stack alignment
+  -stack-protector-buffer-size=<uint>     - Lower bound for a buffer to be considered for stack protection
+  -stats                                  - Enable statistics output from program
+  -stats-write-interval=<number>          - Approximate number of seconds between stats writes (default: 1.0)
+  -stop-after-n-instructions=<uint>       - Stop execution after specified number of instructions (default=0 (off))
+  -stop-after-n-tests=<uint>              - Stop execution after generating the given number of tests.  Extra tests corresponding to partially explored paths will also be dumped.
+  -stp-optimize-divides                   - Optimize constant divides into add/shift/multiplies before passing to STP (default=on)
+  -strip-all                              - Strip all symbol info from executable
+  -strip-debug                            - Strip debugger symbol info from executable
+  -suppress-external-warnings             - 
+  -switch-type                            - Select the implementation of switch
+    =simple                               -   lower to ordered branches
+    =llvm                                 -   lower using LLVM
+    =internal                             -   execute switch internally
+  -symbex-before-by=<uint>                - start symbolic execution n instructions before sensitive operations (default 0). use with --symbex-every in zest mode
+  -symbex-for=<uint>                      - Run symbolically for n instructions (use in conjunction with symbex-every) (default=100)
+  -tailcallopt                            - Turn fastcc calls into tail calls by (potentially) changing ABI.
+  -time-passes                            - Time each pass, printing elapsed time for each on exit
+  -track-instruction-time                 - Enable tracking of time for individual instructions
+  -uncovered-update-interval=<number>     - 
+  -unwind-tables                          - Generate unwinding tables for all functions
+  -use-asm-addresses                      - 
+  -use-batching-search                    - Use batching searcher (keep running selected state for N instructions/time, see --batch-instructions and --batch-time)
+  -use-bump-merge                         - Enable support for klee_merge() (extra experimental)
+  -use-cache                              - Use validity caching (default=on)
+  -use-call-paths                         - Enable calltree tracking for instruction level statistics
+  -use-cex-cache                          - Use counterexample caching (default=on)
+  -use-concrete-path                      - 
+  -use-constant-arrays                    - 
+  -use-construct-hash                     - Use hash-consing during STP query construction.
+  -use-fast-cex-solver                    - (default=off)
+  -use-forked-stp                         - Run STP in a forked process (default=off)
+  -use-independent-solver                 - Use constraint independence (default=on)
+  -use-iterative-deepening-time-search    - (experimental)
+  -use-merge                              - Enable support for klee_merge() (experimental)
+  -use-query-log                          - Log queries to a file. Multiple options can be specified seperate by a comma. By default nothing is logged.
+    =all:pc                               -   All queries in .pc (KQuery) format
+    =all:smt2                             -   All queries in .smt2 (SMT-LIBv2) format
+    =solver:pc                            -   All queries reaching the solver in .pc (KQuery) format
+    =solver:smt2                          -   All queries reaching the solver in .pc (SMT-LIBv2) format
+  -use-stp-time-query-log                 - 
+  -use-symbex=<uint>                      - Enable symbolic execution every n instructions in zest mode (0=off, 1=on, >1 advanced use only)
+  -use-visitor-hash                       - Use hash-consing during expr visitation.
+  -verify-dom-info                        - Verify dominator info (time consuming)
+  -verify-each                            - Verify intermediate results of all passes
+  -verify-loop-info                       - Verify loop info (time consuming)
+  -verify-spills                          - Verify after each spill/split
+  -version                                - Display the version of this program
+  -warn-all-externals                     - Give initial warning for all externals.
+  -watchdog                               - Use a watchdog process to enforce --max-time.
+  -write-cov                              - Write coverage information for each test case
+  -write-cvcs                             - Write .cvc files for each test case
+  -write-paths                            - Write .path files for each test case
+  -write-pcs                              - Write .pc files for each test case
+  -write-smt2s                            - Write .smt2 (SMT-LIBv2) files for each test case
+  -write-sym-paths                        - Write .sym.path files for each test case
+  -write-test-info                        - Write additional test case information
+  -x86-asm-syntax                         - Choose style of code to emit from X86 backend:
+    =att                                  -   Emit AT&T-style assembly
+    =intel                                -   Emit Intel-style assembly
+  -zero-seed-extension                    - 
+  -zest                                   - 
+  -zest-continue-after-error              - Continues searching after an error is found
+  -zest-discard-far-states                - discard states farther than zest-search-until from sensitive operation (default true)
+  -zest-search-heuristic                  - 
+    =inst                                 -   Instructions
+    =br                                   -   Branches
+  -zest-search-until=<uint>               - maximum distance to search for states before a sensitive operation (default 500)

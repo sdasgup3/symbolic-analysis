@@ -1,0 +1,21 @@
+module load gcc
+export PATH=/home/sdasgup3/usr/local/bin/:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
+
+
+################### klee #######################################
+export PATH=$PATH:/home/sdasgup3/klee/klee/include/klee/
+export PATH=$PATH:/home/sdasgup3/klee/klee/Release+Asserts/bin/
+export LD_LIBRARY_PATH=/home/sdasgup3/klee/klee/Release+Asserts/lib/:$LD_LIBRARY_PATH
+
+################### llvm #######################################
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-2.9/Release+Asserts/bin/
+export C_INCLUDE_PATH=/usr/include/i386-linux-gnu
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
+
+
+################# pointer analysis ##############################
+source /home/sdasgup3/pointer-test/logicblox-3.10.7/etc/profile.d/logicblox.sh
+export LLVMPA_DIR=/home/sdasgup3/llvmpa/llvmpa/datalog
+
+
