@@ -3,6 +3,7 @@ use Getopt::Long;
 use strict;
 use warnings;
 
+my $SCRIPTDIR = "/home/sdasgup3/Programming/Scripting/";
 my $test = "";
 my $maxt = "";
 my $result = "";
@@ -30,7 +31,8 @@ GetOptions ("wc"        => \$withoutcheker,
             "mdll"      => \$modifiedll) 
  or die("Error in command line arguments\n");
 
-my $make        = "make -f ~/Scripting/Makefile"; 
+
+my $make        = "make -f $SCRIPTDIR/Makefile"; 
 
 ###  LLVM Args
 my $llvm_bin_2_9    = "/home/sdasgup3/llvm/llvm-2.9/Release+Asserts/bin"; 
@@ -44,8 +46,8 @@ my $llvmas2_9      = "$llvm_bin_2_9/llvm-as";
 my $llvmld2_9      = "$llvm_bin_2_9/llvm-ld";
 
 ###  Klee Args
-my $runkleetest = "~/Scripting/runseq";
-my $watchV      = "~/Scripting/watchV";
+my $runkleetest = "$SCRIPTDIR/runseq";
+my $watchV      = "$SCRIPTDIR/watchV";
 my $kleeargs    = "";
 my $maxtime     = "";
 
@@ -68,7 +70,7 @@ $kleeargs =
     . " --use-forked-solver" 
 #    . " --use-cex-cache --libc=uclibc --posix-runtime"
     . " --libc=uclibc --allow-external-sym-calls --only-output-states-covering-new" 
-#    . " --environ=/home/sdasgup3/Scripting/test.env --run-in=/tmp/sandbox" 
+#    . " --environ=$SCRIPTDIR/test.env --run-in=/tmp/sandbox" 
 #  . " --use-query-log=all:pc"
     . " --use-query-log=solver:pc"
     . " --max-sym-array-size=4096 --max-instruction-time=120 --max-time=$maxtime" 
@@ -136,7 +138,7 @@ if(defined($test)) {
     execute("echo");
     execute("echo");
   }
-  execute("$clang2_9 -emit-llvm -c ~/Scripting/jf_checker_map.cpp -I ~/Scripting -o jf_checker_map.bc");
+  execute("$clang2_9 -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
   execute("$llvmas2_9 < $test-kleecheck.ll  > a.bc");
   execute("$llvmld2_9 -disable-opt a.bc  jf_checker_map.bc");
   execute("mv a.out.bc $test.a.out.bc");
