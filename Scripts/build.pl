@@ -3,7 +3,7 @@ use Getopt::Long;
 use strict;
 use warnings;
 
-my $SCRIPTDIR = "/home/sdasgup3/Programming/Scripting/";
+my $SCRIPTDIR = "/home/sdasgup3/SymbolicAnalysis/Scripts/";
 my $test = "";
 my $maxt = "";
 my $result = "";
