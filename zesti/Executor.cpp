@@ -94,8 +94,8 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
-bool inBr;
 bool in_checkerfunc = false;
+SwitchInst* GlobSI = NULL;
 TargetData *TD ;
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
@@ -1389,7 +1389,6 @@ void Executor::stepInstruction(ExecutionState &state) {
   if (DebugPrintInstructions) {
     //printFileLine(state, state.pc);
     //std::cerr << std::setw(10) << stats::instructions << " ";
-    //DSAND
     llvm::errs() << *(state.pc->inst) << "\n";
     llvm::errs() << (state.seedingTTL);
     llvm::errs() << "\n";
@@ -1567,12 +1566,14 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   KFunction *kf = state.stack.back().kf;
   unsigned entry = kf->basicBlockEntry[dst];
   state.pc = &kf->instructions[entry];
-  /*
-  klee_message("DSAND: start: In Executor::transferToBasicBlock");
-  llvm::errs() << *(state.pc->inst);
-  llvm::errs() << "\n";
-  klee_message("DSAND: end");
-  */
+  if (DebugPrintInstructions) {
+    /*
+    klee_message("DSAND: start: In Executor::transferToBasicBlock");
+    llvm::errs() << *(state.pc->inst);
+    llvm::errs() << "\n";
+    klee_message("DSAND: end");
+    */
+  }
   if (state.pc->inst->getOpcode() == Instruction::PHI) {
     PHINode *first = static_cast<PHINode*>(state.pc->inst);
     state.incomingBBIndex = first->getBasicBlockIndex(src);
@@ -1757,10 +1758,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   }
 #endif
   case Instruction::Br: {
-    //inBr = true;                      
-    //klee_message("DSAND: In Instruction::Br");                      
-    //llvm::errs() << *(state.pc->inst);
-    //llvm::errs() << "\n";
     BranchInst *bi = cast<BranchInst>(i);
     if (bi->isUnconditional()) {
       transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), state);
@@ -1780,11 +1777,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         statsTracker->markBranchVisited(branches.first, branches.second);
 
       if (branches.first) {
-        //klee_message("DSAND: In true path");                      
         transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
       }
       if (branches.second) {
-        //klee_message("DSAND: In faLSE path");                      
         transferToBasicBlock(bi->getSuccessor(1), bi->getParent(), *branches.second);
       }
     }
@@ -1797,11 +1792,16 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> ocond;
     if (UseConcretePath)
       ocond = cond;
-    //DSAND
-    klee_message("In Switch Call %d", in_checkerfunc);                        
-    if (isOnConcretePath(state) && !PatchCheckBefore && in_checkerfunc) {
+    
+    //The intension is to make the switch call using the result of 
+    //function call "____jf_test_abstract_location" as sensitive
+    if(DebugPrintInstructions) {
+      klee_message("In Switch Call %d", in_checkerfunc);                        
+      llvm::errs() << *(GlobSI) << "\n";
+    }
+    if (isOnConcretePath(state) && !PatchCheckBefore && si == GlobSI) {
       addSensitiveInstruction(state);
-      in_checkerfunc = false;
+      GlobSI  = NULL;
     }
 
     cond = toUnique(state, cond, false);
@@ -1913,10 +1913,20 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     unsigned numArgs = cs.arg_size();
     Value *fp = cs.getCalledValue();
     Function *f = getTargetFunction(fp, state);
+
     if(f->getNameStr()  == "____jf_test_abstract_location") {
-      in_checkerfunc = true;
+      for (Value::use_iterator UI = i->use_begin(), UE = i->use_end(); 
+        UI != UE; ++UI) {
+        Instruction* UseI = dyn_cast<Instruction>(*UI);
+        if(isa<SwitchInst>(UseI)) {
+          GlobSI = cast<SwitchInst>(UseI);
+          if(DebugPrintInstructions) {
+            klee_message("DSAND: Registered GlobSI \n");
+          }
+        }
+      }
+      //in_checkerfunc = true;
     }
-    //klee_message("DSAND: In Function Call %d", in_checkerfunc);                        
 
     // Skip debug intrinsics, we can't evaluate their metadata arguments.
     if (f && isDebugIntrinsic(f, kmodule))
@@ -2273,9 +2283,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #endif
 
   case Instruction::Load: {
-    //Type *IntPtrTy = DL->getIntPtrType(i->getType()->getContext());
-    //klee_message("DSAND: load ptr type %d", type);
-
     ref<Expr> base = eval(ki, 0, state).value;
     executeMemoryOperation(state, false, base, 0, ki);
     break;
@@ -2902,28 +2909,33 @@ void Executor::run(ExecutionState &initialState) {
   }
 
  search:
-  klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
+  if(DebugPrintInstructions) {
+    klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
+  }
   searcher = constructUserSearcher(*this);
   // klee timers have 0.1s resolution, unsuitable for inst execution time
   double stateStartTime, stateEndTime;
   searcher->update(0, states, std::set<ExecutionState*>());
 
   while (!states.empty() && !haltExecution) {
-    /*
-    klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
-    for (std::set<ExecutionState*>::iterator
-           it = states.begin(), ie = states.end();
-         it != ie; ++it) {
-      ExecutionState &state = **it;
-      llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
+    if(DebugPrintInstructions) {
+      /*
+      klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
+      for (std::set<ExecutionState*>::iterator
+             it = states.begin(), ie = states.end();
+           it != ie; ++it) {
+        ExecutionState &state = **it;
+        llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
+      }
+      */
     }
-    */
 
     ExecutionState &state = searcher->selectState();
 
-    //llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
-    //klee_message("DSAND: After Selection: End");
-
+    if(DebugPrintInstructions) {
+      //llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
+      //klee_message("DSAND: After Selection: End");
+    }
     
     if (state.markForDeletion || (LESTMaxBranchTime > 0 && state.branchTime && *state.branchTime > LESTMaxBranchTime)) {
       disableSeeding(state);
@@ -3517,9 +3529,11 @@ void Executor::resolveExact(ExecutionState &state,
 
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
-  klee_message("DSAND: in  addSensitiveInstruction");
-  llvm::errs() << *(state.prevPC->inst);
-  llvm::errs() << "\n";
+  if(DebugPrintInstructions) {
+    klee_message("DSAND: in  addSensitiveInstruction");
+    llvm::errs() << *(state.prevPC->inst);
+    llvm::errs() << "\n";
+  }
 
   if (Concolic == stage)
     return;
@@ -3575,22 +3589,24 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     ref<Expr> offset = mo->getOffsetExpr(address);
     ref<Expr> boundsCheck = mo->getBoundsCheckOffset(offset, bytes);
     
-    //DSAND: Add load of pointer type as sensitive instruction
     if (isOnConcretePath(state) && !PatchCheckBefore) {
       // remember the instruction if it is sensitive
       if (EveryAccessIsSensitive  ||
           state.lastInstructionGEP ||
           !dyn_cast<ConstantExpr>(boundsCheck)) {
             //addSensitiveInstruction(state);
-      } else if(target){
+      }
+      /*
+      else if(target){
         Instruction *I = target->inst; 
         const Type* Ty = I->getType();
         const IntegerType *ITy = TD->getIntPtrType(Ty->getContext()) ;
         if(Ty->isPointerTy() || Ty == ITy) {
-          //addSensitiveInstruction(state);  
-          //klee_message("Add load of pointer type as sensitive instruction");
+          addSensitiveInstruction(state);  
+          klee_message("Add load of pointer type as sensitive instruction");
         }
       }
+      */
     }
     bool inBounds;
     solver->setTimeout(stpTimeout);
@@ -3647,7 +3663,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
 
   // XXX there is some query wasteage here. who cares?
   ExecutionState *unbound = &state;
-  klee_message("DSAND: addSen1 %d", isOnConcretePath(*unbound));
 
   for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
     const MemoryObject *mo = i->first;
@@ -4086,7 +4101,9 @@ void Executor::enableSeeding(ExecutionState& state, unsigned TTL, int interleave
 }
 
 void Executor::disableSeeding(ExecutionState& state) {
-  klee_message("DSAND: Seeding Disabled");
+  if(DebugPrintInstructions) {
+    klee_message("DSAND: Seeding Disabled");
+  }
   state.symbexEnabled = false;
   state.markForDeletion = false;
   state.nextForkInterleaved = false;
