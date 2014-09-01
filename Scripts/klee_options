@@ -238,6 +238,7 @@ OPTIONS:
   -zero-seed-extension                    - 
   -zest                                   - 
   -zest-continue-after-error              - Continues searching after an error is found
+  -zest-depth-offset=<uint>               - maximum distance to search for states before a sensitive operation (default 2)
   -zest-discard-far-states                - discard states farther than zest-search-until from sensitive operation (default true)
   -zest-search-heuristic                  - 
     =inst                                 -   Instructions

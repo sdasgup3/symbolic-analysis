@@ -95,7 +95,7 @@ bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
 bool in_checkerfunc = false;
-SwitchInst* GlobSI = NULL;
+Instruction* GlobSI = NULL;
 TargetData *TD ;
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
@@ -1390,7 +1390,7 @@ void Executor::stepInstruction(ExecutionState &state) {
     //printFileLine(state, state.pc);
     //std::cerr << std::setw(10) << stats::instructions << " ";
     llvm::errs() << *(state.pc->inst) << "\n";
-    llvm::errs() << (state.seedingTTL);
+    //llvm::errs() << (state.seedingTTL);
     llvm::errs() << "\n";
   }
 
@@ -1795,10 +1795,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     
     //The intension is to make the switch call using the result of 
     //function call "____jf_test_abstract_location" as sensitive
-    if(DebugPrintInstructions) {
-      klee_message("In Switch Call %d", in_checkerfunc);                        
-      llvm::errs() << *(GlobSI) << "\n";
-    }
     if (isOnConcretePath(state) && !PatchCheckBefore && si == GlobSI) {
       addSensitiveInstruction(state);
       GlobSI  = NULL;
@@ -1914,18 +1910,24 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     Value *fp = cs.getCalledValue();
     Function *f = getTargetFunction(fp, state);
 
-    if(f->getNameStr()  == "____jf_test_abstract_location") {
-      for (Value::use_iterator UI = i->use_begin(), UE = i->use_end(); 
-        UI != UE; ++UI) {
-        Instruction* UseI = dyn_cast<Instruction>(*UI);
-        if(isa<SwitchInst>(UseI)) {
-          GlobSI = cast<SwitchInst>(UseI);
-          if(DebugPrintInstructions) {
-            klee_message("DSAND: Registered GlobSI \n");
+    if (isOnConcretePath(state) && !PatchCheckBefore) {
+      if(f->getNameStr()  == "____jf_test_abstract_location") {
+        for (Value::use_iterator UI = i->use_begin(), UE = i->use_end(); 
+          UI != UE; ++UI) {
+          Instruction* UseI = dyn_cast<Instruction>(*UI);
+          if(isa<SwitchInst>(UseI)) {
+            GlobSI = UseI;
+            if(DebugPrintInstructions) {
+              klee_message("DSAND: Registered SwitchInst \n");
+            }
+          } else if(isa<ICmpInst>(UseI)) {
+            GlobSI = UseI;
+            if(DebugPrintInstructions) {
+              klee_message("DSAND: Registered ICmpInst \n");
+            }
           }
         }
       }
-      //in_checkerfunc = true;
     }
 
     // Skip debug intrinsics, we can't evaluate their metadata arguments.
@@ -2166,6 +2168,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::ICmp: {
     CmpInst *ci = cast<CmpInst>(i);
     ICmpInst *ii = cast<ICmpInst>(ci);
+
+
+    //The intension is to make the ICmpInst call (which is  the result of 
+    //function call "____jf_test_abstract_location") as sensitive
+    if (isOnConcretePath(state) && !PatchCheckBefore && ii == GlobSI) {
+      addSensitiveInstruction(state);
+      GlobSI  = NULL;
+    }
  
     switch(ii->getPredicate()) {
     case ICmpInst::ICMP_EQ: {

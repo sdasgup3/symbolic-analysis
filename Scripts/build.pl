@@ -80,8 +80,8 @@ $kleeargs =
     . " --use-batching-search --batch-instructions=10000"; 
 #./paste.bc --sym-args 0 1 10 --sym-args 0 2 2 --sym-files 1 8 --sym-stdout "; 
 
-#my $zestargs = " --zest --debug-print-instructions --zest-discard-far-states=false --use-symbex=6 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
-my $zestargs = " --zest --zest-depth-offset=$offset --debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
+my $zestargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
+#my $zestargs = " --zest --zest-depth-offset=$offset   --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
 #-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
 
 
@@ -133,15 +133,17 @@ if(defined($test)) {
     execute("$make $test LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib");
     execute("echo");
     execute("$make $test-kleecheck LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib");
-    execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' >  temp ");
+    execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9]*//' >  temp ");
     execute("mv temp $test-kleecheck.ll") ;
     execute("echo");
     execute("echo");
   }
   execute("$clang2_9 -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
   execute("$llvmas2_9 < $test-kleecheck.ll  > a.bc");
+#execute("$llvmld2_9 -disable-opt a.bc  jf_checker_map.bc");
   execute("$llvmld2_9 -disable-opt a.bc  jf_checker_map.bc");
-  execute("mv a.out.bc $test.a.out.bc");
+  execute("$llvmdis2_9 < a.out.bc  > a.out.ll");
+  execute("cp a.out.bc $test.a.out.bc");
   if("" eq $genexec) {
     &runKlee;
   }
