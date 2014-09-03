@@ -8,12 +8,12 @@ LLVMDIS=$(LLVM_BIN)/llvm-dis
 OPT=$(LLVM_BIN)/opt
 
 %: %.c
-	$(CLANG) -O0 -emit-llvm -I /home/sdasgup3/klee/klee/include/klee -I ./  -c $< -o $@.unopt.bc
+	$(CLANG) -O0 -emit-llvm -I $(KLEEINCLUDE) -I ./  -c $< -o $@.unopt.bc
 	$(OPT) $(OPTIMIZATIONS) $@.unopt.bc > $@.bc
 	$(LLVMDIS) $@.bc > $@.ll
 
 %: %.cpp
-	$(CLANGPLUS) -O0 -emit-llvm -I /home/sdasgup3/klee/klee/include/klee -I ./ -c $< -o $@.unopt.bc
+	$(CLANGPLUS) -O0 -emit-llvm -I $(KLEEINCLUDE) -I ./ -c $< -o $@.unopt.bc
 	$(OPT) $(OPTIMIZATIONS) $@.unopt.bc > $@.bc
 	$(LLVMDIS) $@.bc > $@.ll
 
@@ -23,11 +23,9 @@ OPT=$(LLVM_BIN)/opt
 	$(LLVMDIS)  $@.bc > $@.ll
 
 %-kleecheck: %.bc
-#$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so  -check-aa -basic-interface  $< > $@.bc
-#$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so -check-aa -basic-interface -klee-ready -dump-points-to=$<.graph $< > $@.bc
+#	$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so  -check-aa -aa-interface  $< > $@.bc
 #$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so   -basicaa -check-aa -aaa-interface  $< > $@.bc
 	$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so   -check-aa  -pa-interface -klee-ready -dump-points-to=$<.graph  $< > $@.bc
-#$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so  -check-pointer  -klee-ready -dump-points-to=$<.graph $< > $@.bc
 	$(LLVMDIS)  $@.bc > $@.ll
 
 %.bc: %.c
