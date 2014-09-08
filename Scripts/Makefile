@@ -23,8 +23,7 @@ OPT=$(LLVM_BIN)/opt
 	$(LLVMDIS)  $@.bc > $@.ll
 
 %-kleecheck: %.bc
-#	$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so  -check-aa -aa-interface  $< > $@.bc
-#$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so   -basicaa -check-aa -aaa-interface  $< > $@.bc
+#$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so   -basicaa -check-aa -aa-interface  $< > $@.bc
 	$(OPT) -load=$(LLVMPALIB)/libllvmpa.so -load=$(LLVMPALIB)/libchecker.so   -check-aa  -pa-interface -klee-ready -dump-points-to=$<.graph  $< > $@.bc
 	$(LLVMDIS)  $@.bc > $@.ll
 

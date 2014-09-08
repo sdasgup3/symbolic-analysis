@@ -94,7 +94,7 @@ if($zest eq "") {
   $kleeexec = "$zesti_bin/klee";
   $kleeincl = "$zesti_include/";
 #$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
-  $kleeargs = " --zest --zest-depth-offset=$offset              --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
+$kleeargs = " --zest --zest-depth-offset=$offset              --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
 #-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
 }
 
@@ -147,7 +147,7 @@ if(defined($test)) {
     execute("$make $test LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib KLEEINCLUDE=$kleeincl");
     execute("echo");
     execute("$make $test-kleecheck LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib");
-    execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9]*//' >  temp ");
+    execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9][0-9]*//' >  temp ");
     execute("mv temp $test-kleecheck.ll") ;
     execute("echo");
     execute("echo");
