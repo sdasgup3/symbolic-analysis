@@ -40,6 +40,7 @@ tar -xvf zesti.tar.gz
 cd klee/zesti
 
 ./configure --with-llvm=/home/sdasgup3/llvm/llvm-2.9/ --with-stp=/home/sdasgup3/klee/stp-r940/install/ --with-uclibc=/home/sdasgup3/klee/klee-uclibc/ --enable-posix-runtime
+
 make ENABLE_OPTIMIZED=1
 
 
