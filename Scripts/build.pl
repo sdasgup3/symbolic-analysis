@@ -94,7 +94,7 @@ if($zest eq "") {
   $kleeexec = "$zesti_bin/klee";
   $kleeincl = "$zesti_include/";
 #$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
-$kleeargs = " --zest --zest-depth-offset=$offset              --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
+$kleeargs = " --zest --zest-depth-offset=$offset              --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
 #-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
 }
 
