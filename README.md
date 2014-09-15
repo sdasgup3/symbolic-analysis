@@ -49,15 +49,22 @@ Running TestCase
 The commands can be viewed from Scripts/build.pl
 
 make clean
+
 make $test LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib KLEEINCLUDE=$kleeincl
 make $test-kleecheck LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib
+
 cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9][0-9]*//' >  temp
+
 mv temp $test-kleecheck.ll") ;
 
 $clang2_9 -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
+
 $llvmas2_9 < $test-kleecheck.ll  > a.bc");
+
 $llvmld2_9 -disable-opt a.bc  jf_checker_map.bc");
+
 $llvmdis2_9 < a.out.bc  > a.out.ll");
+
 cp a.out.bc $test.a.out.bc");
 
 
