@@ -46,7 +46,7 @@ make ENABLE_OPTIMIZED=1
 
 Running TestCase
 ===================
-The commands can be viewed from Scripts/build.pl
+The commands can be viewed from Scripts/build.pl. Also find the Makefiles required from Scripts folder.
 
 make clean
 
