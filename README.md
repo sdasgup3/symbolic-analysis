@@ -22,9 +22,15 @@ or
 git clone --depth 1 --branch klee_0_9_29 https://github.com/ccadar/klee-uclibc.git
 
 cd klee-uclibc/
+
 export PATH=$PATH:/home/sdasgup3/KLEE/llvm-2.9/Release+Asserts/bin/
-./configure -l  // ./configure --make-llvm-lib
-//https://github.com/klee/klee-uclibc/wiki/Getting-started
+
+./configure -l  
+/*  ./configure --make-llvm-lib
+
+https://github.com/klee/klee-uclibc/wiki/Getting-started
+*/
+
 make
 
 make zesti
