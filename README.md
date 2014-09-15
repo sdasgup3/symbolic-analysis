@@ -33,7 +33,7 @@ https://github.com/klee/klee-uclibc/wiki/Getting-started
 
 make
 
-make zesti
+Build klee/zesti
 --------------
 git clone https://github.com/ccadar/klee.git //for klee
 tar -xvf zesti.tar.gz
