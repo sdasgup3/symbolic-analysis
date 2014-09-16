@@ -11,8 +11,11 @@ make
 Build stp
 ----------------
 tar xzfv stp-r940.tgz
+
 cd stp-r940
+
 ./scripts/configure --with-prefix=`pwd`/install --with-cryptominisat2
+
 make OPTIMIZE=-O2 CFLAGS_M32= install
 
 Build uclibc
