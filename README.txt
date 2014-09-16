@@ -1,6 +1,11 @@
 Build zesti/klee
 ===================
 
+sudo yum install g++ curl dejagnu subversion bison flex bc libcap-devel
+
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
+/*llvm-gcc4.2-2.9-x86_64-linux.* can be founf in download directory*/
+
 Build llvm 2.9
 -----------------
 tar zxvf llvm-2.9.tgz
@@ -18,23 +23,31 @@ cd stp-r940
 
 make OPTIMIZE=-O2 CFLAGS_M32= install
 
+ulimit -s unlimited
+
 Build uclibc
 ----------------
-git clone --branch klee_0_9_29 https://github.com/ccadar/klee-uclibc.git
-or 
 git clone --depth 1 --branch klee_0_9_29 https://github.com/ccadar/klee-uclibc.git
 
-cd klee-uclibc/
+(
+In case u want to do some dev oin uclibc then use the following:
+git clone --branch klee_0_9_29 https://github.com/ccadar/klee-uclibc.git
+)
 
-export PATH=$PATH:/home/sdasgup3/KLEE/llvm-2.9/Release+Asserts/bin/
+cd klee-uclibc/
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-2.9/Release+Asserts/bin/
+/* or
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-3.4.2/llvm-build/Release+Asserts/bin/
+module load gcc
+*/
 
 ./configure -l  
-/*  ./configure --make-llvm-lib
-
+/*  
+./configure --make-llvm-lib
 https://github.com/klee/klee-uclibc/wiki/Getting-started
 */
 
-make
+make -j2
 
 Build klee/zesti
 --------------
@@ -43,13 +56,28 @@ tar -xvf zesti.tar.gz
 cd klee/zesti
 
 ./configure --with-llvm=/home/sdasgup3/llvm/llvm-2.9/ --with-stp=/home/sdasgup3/klee/stp-r940/install/ --with-uclibc=/home/sdasgup3/klee/klee-uclibc/ --enable-posix-runtime
+/*
+or
+./configure --with-llvmsrc=/home/sdasgup3/llvm/llvm-3.4.2/llvm-src/ --with-llvmobj=/home/sdasgup3/llvm/llvm-3.4.2/llvm-build/ --with-stp=/home/sdasgup3/SymbolicAnalysis/stp-r940/install/ --with-uclibc=/home/sdasgup3/SymbolicAnalysis/klee-uclibc/ --enable-posix-runtime
+*/
 
-make ENABLE_OPTIMIZED=1
+/* In case stuck in problems
+//sudo ln -s /usr/include/x86_64-linux-gnu/asm/ /usr/include/asm
+//In case of prblms like C compiler not working
+//sudo apt-get remove gcc
+//sudo apt-get install gcc
+//sudo apt-get install g++
+*/
+
+
+make ENABLE_OPTIMIZED=1 
+make check  //optional
+make unittests  //optional
 
 
 Running TestCase
 ===================
-The commands can be viewed from Scripts/build.pl. Also find the Makefiles required from Scripts folder.
+// The detailed commands can be viewed from Scripts/build.pl. Also find the Makefiles required from Scripts folder.
 
 make clean
 
