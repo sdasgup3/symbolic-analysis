@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <unistd.h>
 #include "Common.h"
 
 #include "Executor.h"
@@ -3924,8 +3925,8 @@ bool Executor::getSymbolicSolution(const ExecutionState &state,
       }
       std::vector< ref<Expr> >::const_iterator pi = 
         mo->cexPreferences.begin(), pie = mo->cexPreferences.end();
-      int i = 0;
-      for (; pi != pie; ++pi, ++i) {
+      //int i = 0;
+      for (; pi != pie; ++pi) { //, ++i) {
         //if (0 == i % 10)
           //std::cerr << i << std::endl;
         bool mustBeTrue;

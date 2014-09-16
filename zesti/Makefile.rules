@@ -453,6 +453,9 @@ else
   endif
 endif
 
+LLVMCC  := $(LLVMToolDir)/clang
+LLVMCXX := $(LLVMToolDir)/clang++
+
 #--------------------------------------------------------------------
 # Full Paths To Compiled Tools and Utilities
 #--------------------------------------------------------------------
