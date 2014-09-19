@@ -11,10 +11,7 @@
 #define KLEE_PASSES_H
 
 #include "klee/Config/Version.h"
-
-#include "llvm/Constants.h"
-#include "llvm/Instructions.h"
-#include "llvm/Module.h"
+#include "klee/llvmVerCompatibleHeader.h"
 #include "llvm/Pass.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 

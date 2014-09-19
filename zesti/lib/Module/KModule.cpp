@@ -11,6 +11,7 @@
 #include "../Core/Common.h"
 
 #include "klee/Internal/Module/KModule.h"
+#include "klee/llvmVerCompatibleHeader.h"
 
 #include "Passes.h"
 
@@ -22,13 +23,7 @@
 #include "klee/Internal/Support/ModuleUtil.h"
 
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Instructions.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
-#include "llvm/LLVMContext.h"
-#endif
-#include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/ValueSymbolTable.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
@@ -39,11 +34,6 @@
 #include "llvm/System/Path.h"
 #else
 #include "llvm/Support/Path.h"
-#endif
-#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
-#include "llvm/Target/TargetData.h"
-#else
-#include "llvm/DataLayout.h"
 #endif
 #include "llvm/Transforms/Scalar.h"
 
