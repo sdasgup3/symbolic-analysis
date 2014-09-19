@@ -18,7 +18,7 @@ make
 
 Build stp
 ----------------
-tar xzfv stp-r940.tgz /*Find the tarball http://www.doc.ic.ac.uk/~cristic/klee/stp.html or Download page*/
+tar xzfv stp-r940.tgz /*Find the tarball http://www.doc.ic.ac.uk/~cristic/klee/stp.html */
 
 cd stp-r940
 
