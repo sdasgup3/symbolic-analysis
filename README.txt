@@ -1,10 +1,13 @@
-Build zesti/klee
-===================
+Build zesti/klee (http://klee.github.io/klee/GetStarted.html)
+=================================================================
 
 sudo yum install g++ curl dejagnu subversion bison flex bc libcap-devel
 
 export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
-/*Find the tarball in Download directory*/
+
+/*Find the tarball @
+http://llvm.org/releases/2.9/llvm-gcc4.2-2.9-x86_64-linux.tar.bz2
+*/
 
 Build llvm 2.9
 -----------------
@@ -15,7 +18,7 @@ make
 
 Build stp
 ----------------
-tar xzfv stp-r940.tgz /*Find the tarball in Download directory*/
+tar xzfv stp-r940.tgz /*Find the tarball http://www.doc.ic.ac.uk/~cristic/klee/stp.html or Download page*/
 
 cd stp-r940
 
