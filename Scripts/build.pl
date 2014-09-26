@@ -26,7 +26,7 @@ my $modifiedll = "";
 my $withoutcheker = "";
 my @progargs = "";
 my $zest = "";
-my $offset = "";
+my $offset = "1";
 
 GetOptions ("wc"        => \$withoutcheker, 
             "test=s"    => \$test, 
