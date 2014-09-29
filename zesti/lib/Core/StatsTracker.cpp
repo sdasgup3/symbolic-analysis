@@ -27,13 +27,7 @@
 #include "UserSearcher.h"
 #include "../Solver/SolverStats.h"
 
-#include "llvm/BasicBlock.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/InlineAsm.h"
-#include "llvm/Module.h"
-#include "llvm/Type.h"
+#include "klee/llvmVerCompatibleHeader.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/CFG.h"
 #if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
@@ -47,8 +41,10 @@
 #include "llvm/Support/Path.h"
 #endif
 
+
 #include <iostream>
 #include <fstream>
+#include <unistd.h>
 
 using namespace klee;
 using namespace llvm;
@@ -176,13 +172,26 @@ StatsTracker::StatsTracker(Executor &_executor, std::string _objectFilename,
     updateMinDistToUncovered(_updateMinDistToUncovered) {
   KModule *km = executor.kmodule;
 
-  sys::Path module(objectFilename);
-  if (!sys::Path(objectFilename).isAbsolute()) {
-    sys::Path current = sys::Path::GetCurrentDirectory();
-    current.appendComponent(objectFilename);
-    if (current.exists())
-      objectFilename = current.c_str();
-  }
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+    if (!sys::path::is_absolute(objectFilename)) {
+      SmallString<128> current(objectFilename);
+      if(sys::fs::make_absolute(current)) {
+        bool exists = false;
+        error_code ec = sys::fs::exists(current.str(), exists);
+        if (ec == errc::success && exists) {
+          objectFilename = current.c_str();
+        }
+      }
+    }
+  #else
+    sys::Path module(objectFilename);
+    if (!sys::Path(objectFilename).isAbsolute()) {
+      sys::Path current = sys::Path::GetCurrentDirectory();
+      current.appendComponent(objectFilename);
+      if (current.exists())
+        objectFilename = current.c_str();
+    }
+  #endif
 
   if (OutputIStats)
     theStatisticManager->useIndexedStats(km->infos->getMaxID());
@@ -390,7 +399,11 @@ void StatsTracker::writeStatsLine() {
              << "," << numBranches
              << "," << util::getUserTime()
              << "," << executor.states.size()
+            #if LLVM_VERSION_CODE > LLVM_VERSION(3, 2)
+             << "," << sys::Process::GetMallocUsage()
+            #else
              << "," << sys::Process::GetTotalMemoryUsage()
+            #endif
              << "," << stats::queries
              << "," << stats::queryConstructs
              << "," << 0 // was numObjects
@@ -431,7 +444,11 @@ void StatsTracker::writeIStats() {
 
   of << "version: 1\n";
   of << "creator: klee\n";
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+  of << "pid: " << getpid() << "\n";
+  #else
   of << "pid: " << sys::Process::GetCurrentUserId() << "\n";
+  #endif
   of << "cmd: " << m->getModuleIdentifier() << "\n\n";
   of << "\n";
   

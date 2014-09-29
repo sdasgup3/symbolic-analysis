@@ -688,7 +688,7 @@ TableGen      = $(TBLGEN) -I $(call SYSPATH, $(PROJ_SRC_DIR)) \
                 -I $(call SYSPATH, $(PROJ_SRC_ROOT)/lib/Target)
 
 Archive       = $(AR) $(AR.Flags)
-LArchive      = $(LLVMToolDir)/llvm-ar rcsf
+LArchive      = $(LLVMToolDir)/llvm-ar rcs
 ifdef RANLIB
 Ranlib        = $(RANLIB)
 else
@@ -1178,6 +1178,7 @@ ifeq ($(strip $(LLVMCC)),)
 $(warning Bytecode libraries require LLVM capable compiler but none is available ****)
 else
 
+$(warning dsand $(LibName.BCA))
 all-local:: $(LibName.BCA)
 
 ifdef EXPORTED_SYMBOL_FILE
@@ -1253,6 +1254,7 @@ endif
 #---------------------------------------------------------
 ifdef BUILD_ARCHIVE
 
+$(warning dsand $(LibName.A))
 all-local:: $(LibName.A)
 
 $(LibName.A): $(ObjectsO) $(LibDir)/.dir

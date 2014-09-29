@@ -17,15 +17,10 @@
 #undef PACKAGE_TARNAME
 #undef PACKAGE_VERSION
 
-#include "llvm/Module.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+
+#include "klee/llvmVerCompatibleHeader.h"
 #if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
 #include "llvm/ModuleProvider.h"
-#endif
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
-#include "llvm/LLVMContext.h"
 #endif
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/GenericValue.h"

@@ -10,9 +10,7 @@
 #include "Context.h"
 
 #include "klee/Expr.h"
-
-#include "llvm/Type.h"
-#include "llvm/DerivedTypes.h"
+#include "klee/llvmVerCompatibleHeader.h"
 
 #include <cassert>
 

@@ -13,22 +13,17 @@
 #include "klee/Internal/Support/ModuleUtil.h"
 #include "klee/Internal/System/Time.h"
 
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
 #if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
 #include "llvm/ModuleProvider.h"
 #endif
-#include "llvm/Type.h"
-#include "llvm/InstrTypes.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
-#include "llvm/LLVMContext.h"
-#endif
+#include "klee/llvmVerCompatibleHeader.h"
+
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
 #undef PACKAGE_BUGREPORT
@@ -234,7 +229,11 @@ private:
   TreeStreamWriter *m_pathWriter, *m_symPathWriter;
   std::ostream *m_infoFile;
 
-  char m_outputDirectory[1024];
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+    SmallString<128> m_outputDirectory;
+  #else   
+    char m_outputDirectory[1024];
+  #endif
   unsigned m_testIndex;  // number of tests written so far
   unsigned m_pathsExplored; // number of paths explored so far
 
@@ -283,6 +282,75 @@ KleeHandler::KleeHandler(int argc, char **argv)
     m_pathsExplored(0),
     m_argc(argc),
     m_argv(argv) {
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+  // create output directory (OutputDir or "klee-out-<i>")
+  bool dir_given = OutputDir != "";
+  SmallString<128> directory(dir_given ? OutputDir : InputFile);
+
+  if (!dir_given) sys::path::remove_filename(directory);
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+  error_code ec;
+  if ((ec = sys::fs::make_absolute(directory)) != errc::success) {
+#else
+  if (auto ec = sys::fs::make_absolute(directory)) {
+#endif
+    klee_error("unable to determine absolute path: %s", ec.message().c_str());
+  }
+
+  if (dir_given) {
+    // OutputDir
+    if (mkdir(directory.c_str(), 0775) < 0)
+      klee_error("cannot create \"%s\": %s", directory.c_str(), strerror(errno));
+
+    m_outputDirectory = directory;
+  } else {
+    // "klee-out-<i>"
+    int i = 0;
+    for (; i <= INT_MAX; ++i) {
+      SmallString<128> d(directory);
+      llvm::sys::path::append(d, "klee-out-");
+      raw_svector_ostream ds(d); ds << i; ds.flush();
+
+      // create directory and try to link klee-last
+      if (mkdir(d.c_str(), 0775) == 0) {
+        m_outputDirectory = d;
+
+        SmallString<128> klee_last(directory);
+        llvm::sys::path::append(klee_last, "klee-last");
+
+        if (((unlink(klee_last.c_str()) < 0) && (errno != ENOENT)) ||
+            symlink(m_outputDirectory.c_str(), klee_last.c_str()) < 0) {
+
+          klee_warning("cannot create klee-last symlink: %s", strerror(errno));
+        }
+
+        break;
+      }
+
+      // otherwise try again or exit on error
+      if (errno != EEXIST)
+        klee_error("cannot create \"%s\": %s", m_outputDirectory.c_str(), strerror(errno));
+    }
+    if (i == INT_MAX && m_outputDirectory.str().equals(""))
+        klee_error("cannot create output directory: index out of range");
+  }
+
+  klee_message("output directory is \"%s\"", m_outputDirectory.c_str());
+
+  // open warnings.txt
+  std::string file_path = getOutputFilename("warnings.txt");
+  if ((klee_warning_file = fopen(file_path.c_str(), "w")) == NULL)
+    klee_error("cannot open file \"%s\": %s", file_path.c_str(), strerror(errno));
+
+  // open messages.txt
+  file_path = getOutputFilename("messages.txt");
+  if ((klee_message_file = fopen(file_path.c_str(), "w")) == NULL)
+    klee_error("cannot open file \"%s\": %s", file_path.c_str(), strerror(errno));
+
+  // open info
+  m_infoFile = openOutputFile("info");
+
+#else
   std::string theDir;
 
   if (OutputDir=="") {
@@ -361,6 +429,7 @@ KleeHandler::KleeHandler(int argc, char **argv)
   assert(klee_message_file);
 
   m_infoFile = openOutputFile("info");
+#endif  
 }
 
 KleeHandler::~KleeHandler() {
@@ -386,9 +455,15 @@ void KleeHandler::setInterpreter(Interpreter *i) {
 }
 
 std::string KleeHandler::getOutputFilename(const std::string &filename) {
-  char outfile[1024];
-  sprintf(outfile, "%s/%s", m_outputDirectory, filename.c_str());
-  return outfile;
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+    SmallString<128> path = m_outputDirectory;
+    sys::path::append(path,filename);
+    return path.str();
+  #else
+    char outfile[1024];
+    sprintf(outfile, "%s/%s", m_outputDirectory, filename.c_str());
+    return outfile;
+  #endif
 }
 
 std::ostream *KleeHandler::openOutputFile(const std::string &filename) {
@@ -572,6 +647,25 @@ void KleeHandler::loadPathFile(std::string name,
 
 void KleeHandler::getOutFiles(std::string path,
 			      std::vector<std::string> &results) {
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+  #if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+  error_code ec;
+  #else
+  std::error_code ec;
+  #endif
+  for (llvm::sys::fs::directory_iterator i(path,ec),e; i!=e && !ec; i.increment(ec)){
+    std::string f = (*i).path();
+    if (f.substr(f.size()-6,f.size()) == ".ktest") {
+          results.push_back(f);
+    }
+  }
+
+  if (ec) {
+    llvm::errs() << "ERROR: unable to read output directory: " << path << ": "
+                 << ec.message() << "\n";
+    exit(1);
+  }
+#else  
   llvm::sys::Path p(path);
   std::set<llvm::sys::Path> contents;
   std::string error;
@@ -591,6 +685,7 @@ void KleeHandler::getOutFiles(std::string path,
       results.push_back(f);
     }
   }
+#endif  
 }
 
 //===----------------------------------------------------------------------===//
@@ -1156,7 +1251,11 @@ static llvm::Module* MakeArgsSymbolic(llvm::Module *mainModule)
 			std::vector<llvm::Value*> args;
 			args.push_back(userMain->arg_begin());
 			args.push_back(++userMain->arg_begin());
-			CallInst::Create(makeSymbolic, args.begin(), args.end(), "", userMain->begin()->begin());
+                        #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+			  CallInst::Create(makeSymbolic, args, "", userMain->begin()->begin());
+                        #else
+			  CallInst::Create(makeSymbolic, args.begin(), args.end(), "", userMain->begin()->begin());
+                        #endif  
 		} else {
 			klee_error("klee_mark_arg_symbolic not found");
 		}
@@ -1389,15 +1488,27 @@ int main(int argc, char **argv, char **envp) {
       return r;
   }
 
-#if defined(KLEE_LIB_DIR) && defined(USE_KLEE_LIB_DIR)
-  /* KLEE_LIB_DIR is the lib dir of installed files as opposed to 
-   * where libs in the klee source tree are generated.
-   */
-  llvm::sys::Path LibraryDir(KLEE_LIB_DIR);
-#else
-  llvm::sys::Path LibraryDir(KLEE_DIR "/" RUNTIME_CONFIGURATION "/lib");
-#endif
-  Interpreter::ModuleOptions Opts(LibraryDir.c_str(),
+
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+    SmallString<128> LibraryDir;
+    #if defined(KLEE_LIB_DIR) && defined(USE_KLEE_LIB_DIR)
+      LibraryDir = KLEE_INSTALL_LIB_DIR ;
+    #else
+      LibraryDir = KLEE_DIR;
+      llvm::sys::path::append(LibraryDir,RUNTIME_CONFIGURATION);
+      llvm::sys::path::append(LibraryDir,"lib");
+    #endif
+  #else  
+    #if defined(KLEE_LIB_DIR) && defined(USE_KLEE_LIB_DIR)
+      /* KLEE_LIB_DIR is the lib dir of installed files as opposed to 
+      * where libs in the klee source tree are generated.
+      */
+      llvm::sys::Path LibraryDir(KLEE_LIB_DIR);
+    #else
+      llvm::sys::Path LibraryDir(KLEE_DIR "/" RUNTIME_CONFIGURATION "/lib");
+    #endif
+  #endif
+    Interpreter::ModuleOptions Opts(LibraryDir.c_str(),
                                   /*Optimize=*/OptimizeModule, 
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckAsserts=*/UseConcretePath);
@@ -1407,9 +1518,19 @@ int main(int argc, char **argv, char **envp) {
     break;
 
   case KleeLibc: {
-    // FIXME: Find a reasonable solution for this.
-    llvm::sys::Path Path(Opts.LibraryDir);
-    Path.appendComponent("libklee-libc.bca");
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+      SmallString<128> Path(Opts.LibraryDir);
+      #if LLVM_VERSION_CODE >= LLVM_VERSION(3,3)
+        llvm::sys::path::append(Path, "klee-libc.bc");
+      #else
+        llvm::sys::path::append(Path, "libklee-libc.bca");
+      #endif
+    #else    
+      // FIXME: Find a reasonable solution for this.
+      llvm::sys::Path Path(Opts.LibraryDir);
+      Path.appendComponent("libklee-libc.bca");
+    #endif
+
     mainModule = klee::linkWithLibrary(mainModule, Path.c_str());
     assert(mainModule && "unable to link with klee-libc");
     break;
@@ -1421,8 +1542,13 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (WithPOSIXRuntime) {
-    llvm::sys::Path Path(Opts.LibraryDir);
-    Path.appendComponent("libkleeRuntimePOSIX.bca");
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+      SmallString<128> Path(Opts.LibraryDir);
+      llvm::sys::path::append(Path, "libkleeRuntimePOSIX.bca");
+    #else
+      llvm::sys::Path Path(Opts.LibraryDir);
+      Path.appendComponent("libkleeRuntimePOSIX.bca");
+    #endif  
     klee_message("NOTE: Using model: %s", Path.c_str());
     if (Libc == UcLibc)
       mainModule = RenameUclibcFunctions(mainModule);

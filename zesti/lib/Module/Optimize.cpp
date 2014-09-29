@@ -16,21 +16,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "klee/Config/Version.h"
-#include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Support/CommandLine.h"
+#include "klee/llvmVerCompatibleHeader.h"
+
 #if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
 #include "llvm/System/DynamicLibrary.h"
 #else
 #include "llvm/Support/DynamicLibrary.h"
-#endif
-#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
-#include "llvm/Target/TargetData.h"
-#else
-#include "llvm/DataLayout.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
@@ -130,7 +126,10 @@ static void AddStandardCompilePasses(PassManager &PM) {
     addPass(PM, createFunctionInliningPass());   // Inline small functions
   addPass(PM, createArgumentPromotionPass());    // Scalarize uninlined fn args
 
+  //addPass(PM, createSimplifyLibCallsPass());     // Library Call Optimizations
+  #if LLVM_VERSION_CODE < LLVM_VERSION(3, 4)
   addPass(PM, createSimplifyLibCallsPass());     // Library Call Optimizations
+  #endif
   if (EnableAllOptimizations)
     addPass(PM, createInstructionCombiningPass()); // Cleanup for scalarrepl.
   addPass(PM, createJumpThreadingPass());        // Thread jumps.
@@ -208,8 +207,15 @@ void Optimize(Module* M) {
     // Now that composite has been compiled, scan through the module, looking
     // for a main function.  If main is defined, mark all other functions
     // internal.
-    if (!DisableInternalize)
-      addPass(Passes, createInternalizePass(true));
+    if (!DisableInternalize) {
+      #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
+        ModulePass *pass = createInternalizePass(std::vector<const char *>(1, "main"));
+      #else
+        ModulePass *pass = createInternalizePass(true);
+      #endif
+      addPass(Passes, pass);
+    }
+
 
     // Propagate constants at call sites into the functions they call.  This
     // opens opportunities for globalopt (and inlining) by substituting function

@@ -10,10 +10,7 @@
 #include "Passes.h"
 #include "klee/Config/Version.h"
 
-#include "llvm/InlineAsm.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
-#include "llvm/LLVMContext.h"
-#endif
+#include "klee/llvmVerCompatibleHeader.h"
 #if LLVM_VERSION_CODE >= LLVM_VERSION(2, 9)
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Host.h"

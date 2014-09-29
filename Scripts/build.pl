@@ -10,10 +10,10 @@ my $llvm_bin_3_4    = "/home/sdasgup3/llvm/llvm-llvmpa/llvm-build/Release+Assert
 my $llvmpalib       = "/home/sdasgup3/llvmpa/llvmpa-build/Release+Asserts/lib/";
 my $klee_bin        = "/home/sdasgup3/klee/klee/Release+Asserts/bin/";
 my $klee_include    = "/home/sdasgup3/klee/klee/include/klee";
-#my $zesti_bin       = "/home/sdasgup3/zesti/Release+Asserts/bin/";
-#my $zesti_include   = "/home/sdasgup3/zesti/include/klee/";
-my $zesti_bin       = "/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/bin/";
-my $zesti_include   = "/home/sdasgup3/SymbolicAnalysis/zesti/include/klee/";
+my $zesti_bin       = "/home/sdasgup3/zesti/Release+Asserts/bin/";
+my $zesti_include   = "/home/sdasgup3/zesti/include/klee/";
+#my $zesti_bin       = "/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/bin/";
+#my $zesti_include   = "/home/sdasgup3/SymbolicAnalysis/zesti/include/klee/";
 
 ##############################################
 

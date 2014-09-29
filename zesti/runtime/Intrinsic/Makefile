@@ -17,7 +17,6 @@ BYTECODE_LIBRARY=1
 DEBUG_RUNTIME=1
 NO_PEDANTIC=1
 
-MODULE_NAME=kleeRuntimeIntrinsic
 C.Flags += -fno-builtin
 
 include $(LEVEL)/Makefile.common
