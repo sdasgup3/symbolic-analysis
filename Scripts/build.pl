@@ -10,8 +10,10 @@ my $llvm_bin_3_4    = "/home/sdasgup3/llvm/llvm-llvmpa/llvm-build/Release+Assert
 my $llvmpalib       = "/home/sdasgup3/llvmpa/llvmpa-build/Release+Asserts/lib/";
 my $klee_bin        = "/home/sdasgup3/klee/klee/Release+Asserts/bin/";
 my $klee_include    = "/home/sdasgup3/klee/klee/include/klee";
-my $zesti_bin       = "/home/sdasgup3/zesti/Release+Asserts/bin/";
-my $zesti_include   = "/home/sdasgup3/zesti/include/klee/";
+#my $zesti_bin       = "/home/sdasgup3/zesti/Release+Asserts/bin/";
+#my $zesti_include   = "/home/sdasgup3/zesti/include/klee/";
+my $zesti_bin       = "/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/bin/";
+my $zesti_include   = "/home/sdasgup3/SymbolicAnalysis/zesti/include/klee/";
 
 ##############################################
 
@@ -94,36 +96,11 @@ if($zest eq "") {
   $kleeexec = "$zesti_bin/klee";
   $kleeincl = "$zesti_include/";
 #$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
-$kleeargs = " --zest --zest-depth-offset=$offset              --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+#$kleeargs = " --zest --zest-depth-offset=$offset     -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+$kleeargs = " --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
 #-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
 }
 
-
-
-if("" ne $result) {
-  system("cat $runkleetest");
-  system("tcsh $runkleetest");
-  system("cat $watchV");
-  system("tcsh $watchV");
-  exit(0);
-}
-if("" ne $run) {
-  system("cat $runkleetest");
-  system("tcsh $runkleetest");
-  exit(0);
-}
-if("" ne $watch) {
-  system("cat $watchV");
-  system("tcsh $watchV");
-  exit(0);
-}
-
-if("" ne $reuse) {
-  if(-e "$test.a.out.bc") {
-    &runKlee;
-  }
-  exit(0);
-}
 
 if(defined($test)) {
 
@@ -168,7 +145,7 @@ if(defined($test)) {
 
 sub runKlee {
   if(-e "$test.a.out.bc") {
-    execute("klee $kleeargs ./$test.a.out.bc @progargs");
+    execute("$kleeexec $kleeargs ./$test.a.out.bc @progargs");
   }
 }
 
@@ -176,4 +153,29 @@ sub execute {
   my $args = shift @_;
   print "$args \n";
   system("$args");
+}
+
+if("" ne $result) {
+  system("cat $runkleetest");
+  system("tcsh $runkleetest");
+  system("cat $watchV");
+  system("tcsh $watchV");
+  exit(0);
+}
+if("" ne $run) {
+  system("cat $runkleetest");
+  system("tcsh $runkleetest");
+  exit(0);
+}
+if("" ne $watch) {
+  system("cat $watchV");
+  system("tcsh $watchV");
+  exit(0);
+}
+
+if("" ne $reuse) {
+  if(-e "$test.a.out.bc") {
+    &runKlee;
+  }
+  exit(0);
 }
