@@ -22,7 +22,7 @@
 using namespace llvm;
 using namespace klee;
 
-/* also used by the driver (tools/klee/main.cpp) */
+/* a lso used by the driver (tools/klee/main.cpp) */
 bool NoStdOutput;
 
 namespace {
