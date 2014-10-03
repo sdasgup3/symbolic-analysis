@@ -303,11 +303,11 @@ void KModule::prepare(const Interpreter::ModuleOptions &opts,
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3,4)  
   SmallString<128> LibPath(opts.LibraryDir);
   llvm::sys::path::append(LibPath,
-  #if LLVM_VERSION_CODE >= LLVM_VERSION(3,3)
-      "kleeRuntimeIntrinsic.bc"
-  #else
+  //#if LLVM_VERSION_CODE >= LLVM_VERSION(3,3)
+  //    "kleeRuntimeIntrinsic.bc"
+  //#else
       "libkleeRuntimeIntrinsic.bca"
-  #endif
+  //#endif
   );
   module = linkWithLibrary(module, LibPath.str());
 #else
