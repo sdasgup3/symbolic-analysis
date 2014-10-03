@@ -1,1 +1,1 @@
-cscope lib/Core/*.* include/klee/*.h include/klee/Internal/Module/*.h include/klee/Internal/ADT/*
+cscope lib/Core/*.* include/klee/*.h include/klee/Internal/Module/*.h include/klee/Internal/ADT/* lib/Module/*
