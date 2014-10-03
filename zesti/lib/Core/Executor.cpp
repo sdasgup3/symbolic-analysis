@@ -3535,6 +3535,11 @@ void Executor::resolveExact(ExecutionState &state,
 
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
+  if(DebugPrintInstructions) {
+    klee_message("DSAND: in  addSensitiveInstruction");
+    llvm::errs() << *(state.prevPC->inst);
+    llvm::errs() << "\n";
+  }
   if (Concolic == stage)
     return;
   if (ZESTSearchHeuristic == Instructions) {
