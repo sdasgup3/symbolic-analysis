@@ -3,17 +3,13 @@ use Getopt::Long;
 use strict;
 use warnings;
 
+
+#Usage: build -test zesti_test_6 -wc -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/
+
 #################### PATHS #################
 my $SCRIPTDIR       = "/home/sdasgup3/SymbolicAnalysis/Scripts/";
-my $llvm_bin_2_9    = "/home/sdasgup3/llvm/llvm-2.9/Release+Asserts/bin"; 
 my $llvm_bin_3_4    = "/home/sdasgup3/llvm/llvm-llvmpa/llvm-build/Release+Asserts/bin/";
 my $llvmpalib       = "/home/sdasgup3/llvmpa/llvmpa-build/Release+Asserts/lib/";
-my $klee_bin        = "/home/sdasgup3/klee/klee/Release+Asserts/bin/";
-my $klee_include    = "/home/sdasgup3/klee/klee/include/klee";
-my $zesti_bin       = "/home/sdasgup3/zesti/Release+Asserts/bin/";
-my $zesti_include   = "/home/sdasgup3/zesti/include/klee/";
-#my $zesti_bin       = "/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/bin/";
-#my $zesti_include   = "/home/sdasgup3/SymbolicAnalysis/zesti/include/klee/";
 
 ##############################################
 
@@ -29,6 +25,8 @@ my $withoutcheker = "";
 my @progargs = "";
 my $zest = "";
 my $offset = "1";
+my $klee_dir = "";
+my $llvm_dir = "";
 
 GetOptions ("wc"        => \$withoutcheker, 
             "test=s"    => \$test, 
@@ -41,25 +39,36 @@ GetOptions ("wc"        => \$withoutcheker,
             "watch"     => \$watch, 
             "args=s"    => \@progargs, 
             "maxt=s"    => \$maxt, 
+            "klee_dir=s"    => \$klee_dir, 
+            "llvm_dir=s"    => \$llvm_dir, 
             "mdll"      => \$modifiedll) 
  or die("Error in command line arguments\n");
 
 
+if("" eq $klee_dir) {
+  print "Specify klee_dir\n";
+  exit(1);
+}
+if("" eq $llvm_dir) {
+  print "Specify llvm_dir\n";
+  exit(1);
+}
+
 my $make        = "make -f $SCRIPTDIR/Makefile"; 
 
 ###  LLVM Args
-my $clang2_9       = "$llvm_bin_2_9/clang";
-my $llvmdis2_9     = "$llvm_bin_2_9/llvm-dis";
-my $llvmas2_9      = "$llvm_bin_2_9/llvm-as";
-my $llvmld2_9      = "$llvm_bin_2_9/llvm-ld";
+my $clang       = "$llvm_dir/Release+Asserts/bin/clang";
+my $llvmdis     = "$llvm_dir/Release+Asserts/bin/llvm-dis";
+my $llvmas      = "$llvm_dir/Release+Asserts/bin/llvm-as";
+my $llvmld      = "$llvm_dir/Release+Asserts/bin/llvm-ld";
 
-###  Klee Args
+###  Klee/Zesti Args
 my $runkleetest = "$SCRIPTDIR/runseq";
 my $watchV      = "$SCRIPTDIR/watchV";
-my $kleeargs    = "";
-my $kleeexec    = "";
-my $kleeincl    = "";
+my $kleeexec    = "$klee_dir/Release+Asserts/bin/klee";
+my $kleeincl    = "$klee_dir/include/klee";
 my $maxtime     = "";
+my $kleeargs    = "";
 
 if("" eq $maxt) {
   print "Setting max time to default 172800\n";
@@ -68,10 +77,9 @@ if("" eq $maxt) {
   $maxtime = $maxt;
 }
 
+
 if($zest eq "") {
 
-  $kleeexec = "$klee_bin/klee";
-  $kleeincl = "$klee_include/";
 # $kleeargs  = "-write-test-info";
 # $kleeargs  = "--libc=uclibc  --allow-external-sym-calls";
 # $kleeargs  = "--emit-all-errors";
@@ -93,11 +101,9 @@ if($zest eq "") {
       . " --use-batching-search --batch-instructions=10000"; 
 #./paste.bc --sym-args 0 1 10 --sym-args 0 2 2 --sym-files 1 8 --sym-stdout "; 
 } else {
-  $kleeexec = "$zesti_bin/klee";
-  $kleeincl = "$zesti_include/";
 #$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
 #$kleeargs = " --zest --zest-depth-offset=$offset     -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
-$kleeargs = " --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+  $kleeargs = " --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
 #-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
 }
 
@@ -106,8 +112,8 @@ if(defined($test)) {
 
   if($withoutcheker ne "") {
     execute("$make clean");
-    execute("$clang2_9 -O0 -emit-llvm -I $kleeincl -I ./ -c $test.c -o $test.a.out.bc");
-    execute("$llvmdis2_9 $test.a.out.bc -o a.out.ll");
+    execute("$clang -O0 -emit-llvm -I $kleeincl -I ./ -c $test.c -o $test.a.out.bc");
+    execute("$llvmdis $test.a.out.bc -o a.out.ll");
 
     if("" eq $genexec) {
       &runKlee;
@@ -129,10 +135,10 @@ if(defined($test)) {
     execute("echo");
     execute("echo");
   }
-  execute("$clang2_9 -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
-  execute("$llvmas2_9 < $test-kleecheck.ll  > a.bc");
-  execute("$llvmld2_9 -disable-opt a.bc  jf_checker_map.bc");
-  execute("$llvmdis2_9 < a.out.bc  > a.out.ll");
+  execute("$clang -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
+  execute("$llvmas < $test-kleecheck.ll  > a.bc");
+  execute("$llvmld -disable-opt a.bc  jf_checker_map.bc");
+  execute("$llvmdis < a.out.bc  > a.out.ll");
   execute("cp a.out.bc $test.a.out.bc");
   if("" eq $genexec) {
     &runKlee;
