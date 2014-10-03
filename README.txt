@@ -80,6 +80,10 @@ make unittests  //optional
 
 Running TestCase
 ===================
+
+Running with checker
+--------------------
+
 // The detailed commands can be viewed from Scripts/build.pl. Also find the Makefiles required from Scripts folder.
 
 make clean
@@ -103,5 +107,12 @@ cp a.out.bc $test.a.out.bc
 
 
 zesti --zest --zest-depth-offset=$offset  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false  ./$test.a.out.bc
+
+
+Running withOUT checker (the llvm used must be compatible with klee build)
+--------------------
+/home/sdasgup3/llvm/llvm-3.4.2/llvm-build//Release+Asserts/bin/clang -O0 -emit-llvm -I /home/sdasgup3/SymbolicAnalysis/zesti//include/klee -I ./ -c zesti_test_6.c -o zesti_test_6.a.out.bc 
+/home/sdasgup3/llvm/llvm-3.4.2/llvm-build//Release+Asserts/bin/llvm-dis zesti_test_6.a.out.bc -o a.out.ll 
+/home/sdasgup3/SymbolicAnalysis/zesti//Release+Asserts/bin/klee  --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false ./zesti_test_6.a.out.bc
 
 
