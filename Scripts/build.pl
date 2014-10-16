@@ -61,6 +61,11 @@ my $clang       = "$llvm_dir/Release+Asserts/bin/clang";
 my $llvmdis     = "$llvm_dir/Release+Asserts/bin/llvm-dis";
 my $llvmas      = "$llvm_dir/Release+Asserts/bin/llvm-as";
 my $llvmld      = "$llvm_dir/Release+Asserts/bin/llvm-ld";
+if(!(-e "$llvmld")) { # We llvm-ld not there, so search for llvm-link
+  $llvmld = "$llvm_dir/Release+Asserts/bin/llvm-link";
+} else {
+  $llvmld = $llvmld  . " -disable-opt "
+}
 
 ###  Klee/Zesti Args
 my $runkleetest = "$SCRIPTDIR/runseq";
@@ -112,7 +117,7 @@ if(defined($test)) {
 
   if($withoutcheker ne "") {
     execute("$make clean");
-    execute("$clang -O0 -emit-llvm -I $kleeincl -I ./ -c $test.c -o $test.a.out.bc");
+    execute("$clang -O3 -emit-llvm -I $kleeincl -I ./ -c $test.c -o $test.a.out.bc");
     execute("$llvmdis $test.a.out.bc -o a.out.ll");
 
     if("" eq $genexec) {
@@ -137,7 +142,7 @@ if(defined($test)) {
   }
   execute("$clang -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
   execute("$llvmas < $test-kleecheck.ll  > a.bc");
-  execute("$llvmld -disable-opt a.bc  jf_checker_map.bc");
+  execute("$llvmld a.bc  jf_checker_map.bc -o a.out.bc");
   execute("$llvmdis < a.out.bc  > a.out.ll");
   execute("cp a.out.bc $test.a.out.bc");
   if("" eq $genexec) {
