@@ -4,7 +4,7 @@ Build zesti/klee http://klee.github.io/getting-started/
 ```
 sudo yum install g++ curl dejagnu subversion bison flex bc libcap-devel
 export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
-/*Find the tarball @
+/*To Find the tarball @
 http://llvm.org/releases/2.9/llvm-gcc4.2-2.9-x86_64-linux.tar.bz2
 */
 ```
