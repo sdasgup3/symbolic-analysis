@@ -2935,6 +2935,9 @@ void Executor::run(ExecutionState &initialState) {
   }
 
  search:
+  if(DebugPrintInstructions) {
+    klee_message("\n\nSearch Begin: states size %d", (int)states.size());
+  }
   searcher = constructUserSearcher(*this);
   // klee timers have 0.1s resolution, unsuitable for inst execution time
   double stateStartTime, stateEndTime;
@@ -3849,7 +3852,7 @@ int Executor::runFunctionAsMain(Function *f,
   // null that uclibc seems to expect, possibly the ELF header?
 
   int envc;
-  for (envc=0; envp[envc]; ++envc) ;
+  for (envc=0; envp[envc]; ++envc);
 
   unsigned NumPtrBytes = Context::get().getPointerWidth() / 8;
   KFunction *kf = kmodule->functionMap[f];
