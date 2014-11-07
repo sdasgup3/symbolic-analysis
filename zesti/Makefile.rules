@@ -239,6 +239,7 @@ ifeq ($(ENABLE_OPTIMIZED),1)
   #  EXTRA_OPTIONS += -fstrict-aliasing -Wstrict-aliasing
   #endif
   CXX.Flags += $(OPTIMIZE_OPTION) $(OmitFramePointer)
+  CXX.Flags += -std=c++11
   C.Flags   += $(OPTIMIZE_OPTION) $(OmitFramePointer)
   LD.Flags  += $(OPTIMIZE_OPTION)
   ifdef DEBUG_SYMBOLS
@@ -271,6 +272,7 @@ ifeq ($(ENABLE_PROFILING),1)
   LD.Flags  := $(filter-out -fomit-frame-pointer,$(LD.Flags)) -pg -g
   KEEP_SYMBOLS := 1
 endif
+CXX.Flags += -std=c++11
 
 #ifeq ($(ENABLE_VISIBILITY_INLINES_HIDDEN),1)
 #    CXX.Flags += -fvisibility-inlines-hidden
@@ -648,7 +650,6 @@ CPP.Flags     += $(sort -I$(PROJ_OBJ_DIR) -I$(PROJ_SRC_DIR) \
 ifeq ($(BUILD_COMPONENT), 1)
   Compile.C     = $(BUILD_CC) $(CPP.Flags) $(C.Flags) $(CFLAGS) $(CPPFLAGS) \
                   $(TargetCommonOpts) $(CompileCommonOpts) -c
-  Compile.CXX   = $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) \
 		  $(CPPFLAGS) \
                   $(TargetCommonOpts) $(CompileCommonOpts) -c
   Preprocess.CXX= $(BUILD_CXX) $(CPP.Flags) $(CPPFLAGS) $(TargetCommonOpts) \
@@ -2232,6 +2233,7 @@ printvars::
 	$(Echo) "INCTMPFiles  : " '$(INCTMPFiles)'
 	$(Echo) "PreConditions: " '$(PreConditions)'
 	$(Echo) "Compile.CXX  : " '$(Compile.CXX)'
+	$(Echo) "CXX.Flags    : " '$(CXX.Flags)'
 	$(Echo) "Compile.C    : " '$(Compile.C)'
 	$(Echo) "Archive      : " '$(Archive)'
 	$(Echo) "YaccFiles    : " '$(YaccFiles)'

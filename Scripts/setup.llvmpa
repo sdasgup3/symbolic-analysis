@@ -1,11 +1,13 @@
 module load gcc
 export PATH=/home/sdasgup3/usr/local/bin/:$PATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
+export LD_LIBRARY_PATH=/software/gcc-4.8.2/lib64:/software/gcc-4.8.2/lib:/usr/lib64
 
 
 ################### llvm #######################################
-export PATH=$PATH:/home/sdasgup3/llvm/llvm-llvmpa/llvm-build//Release+Asserts/bin/
-export C_INCLUDE_PATH=/usr/include/i386-linux-gnu
+export PATH=$PATH:/home/sdasgup3/llvm/llvm-3.4.2/llvm-build//Release+Asserts/bin/
+export C_INCLUDE_PATH=/usr/include/
+#export CPLUS_INCLUDE_PATH=/usr/include/c++/4.4.4/
+#export CPLUS_INCLUDE_PATH=/software/gcc-4.8.2/include/c++/4.8.2/
 export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
 
 

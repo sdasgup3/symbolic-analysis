@@ -9,7 +9,6 @@ export PATH=$PATH:/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/bin/
 export LD_LIBRARY_PATH=/home/sdasgup3/zesti/Release+Asserts/lib/:$LD_LIBRARY_PATH
 
 ################### llvm #######################################
-#export PATH=$PATH:/home/sdasgup3/llvm/llvm-2.9/Release+Asserts/bin/
 export PATH=$PATH:/home/sdasgup3/llvm/llvm-3.4.2/llvm-build/Release+Asserts/bin/
 export C_INCLUDE_PATH=/usr/include/i386-linux-gnu
 export PATH=$PATH:/home/sdasgup3/llvm/llvm-gcc4.2-2.9-x86_64-linux/bin/
