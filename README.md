@@ -1,4 +1,4 @@
-Build zesti/klee (http://klee.github.io/klee/GetStarted.html)
+Build zesti/klee http://klee.github.io/getting-started/
 =================================================================
 
 ```
