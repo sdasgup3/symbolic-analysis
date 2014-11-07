@@ -1,2 +1,11 @@
 *Release+Asserts
 *Debug+Asserts
+klee-uclibc
+stp-r940/
+zesti/Makefile.config
+zesti/config.log
+zesti/config.status
+zesti/cscope.out
+zesti/docs/doxygen.cfg
+zesti/include/klee/Config/config.h
+
