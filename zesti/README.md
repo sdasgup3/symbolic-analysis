@@ -1,6 +1,5 @@
-//===----------------------------------------------------------------------===//
-// ZESTI/Klee Symbolic Virtual Machine
-//===----------------------------------------------------------------------===//
+ZESTI/Klee Symbolic Virtual Machine
+----------------------------------------------------------------------
 
 For further information about ZESTI see http://srg.doc.ic.ac.uk/projects/zesti/
 
