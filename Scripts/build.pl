@@ -4,8 +4,6 @@ use strict;
 use warnings;
 
 
-#Usage: build -test zesti_test_6 -wc -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/
-
 #################### PATHS #################
 my $SCRIPTDIR       = "/home/sdasgup3/SymbolicAnalysis/Scripts/";
 my $llvm_bin_3_4    = "/home/sdasgup3/llvm/llvm-llvmpa/llvm-build/Release+Asserts/bin/";
@@ -45,12 +43,10 @@ GetOptions ("wc"        => \$withoutcheker,
  or die("Error in command line arguments\n");
 
 
-if("" eq $klee_dir) {
-  print "Specify klee_dir\n";
-  exit(1);
-}
-if("" eq $llvm_dir) {
-  print "Specify llvm_dir\n";
+if("" eq $klee_dir ||  (""  eq $llvm_dir) || "" eq $test) {
+  print "Specify -test [-zest offset=N] [-wc -mdll] -klee_dir -llvm_dir \n";
+  print "Usage: ~/SymbolicAnalysis/Scripts/build.pl -wc -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/ -test ?\n";
+  print "Usage: ~/SymbolicAnalysis/Scripts/build.pl -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/ -test ?\n";
   exit(1);
 }
 
