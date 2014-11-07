@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/llvm_group/!svn/ver/14313/pa/trunk/llvmpa/datalog
+END
+llvmpa.rules.logic
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svn/llvm_group/!svn/ver/14313/pa/trunk/llvmpa/datalog/llvmpa.rules.logic
+END
+llvmpa.1cs_h.logic.m4
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/llvm_group/!svn/ver/14313/pa/trunk/llvmpa/datalog/llvmpa.1cs_h.logic.m4
+END
+llvmpa.insensitive.logic.m4
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/llvm_group/!svn/ver/12887/pa/trunk/llvmpa/datalog/llvmpa.insensitive.logic.m4
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/llvm_group/!svn/ver/12887/pa/trunk/llvmpa/datalog/Makefile
+END
+llvmpa.decl.logic
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/llvm_group/!svn/ver/14313/pa/trunk/llvmpa/datalog/llvmpa.decl.logic
+END

@@ -1,0 +1,1476 @@
+/* *
+ * *     CONTEXT SENSITIVITY SPECIFICS
+ * */
+
+// Context Macros for simple 1cs+h context sensitive analysis
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* *
+ * *     DECLARATIONS
+ * */
+
+/* *
+ * *     DOMAINS
+ * */
+
+// Integer, represented by its value
+Integer(i), Integer:Value(i:v) -> uint[32](v).
+
+// Field, represented by a pointer to a field object
+Field(fld), Field:Ptr(fld:p) -> uint[64](p).
+
+// Offset, represented by a pointer to a path string
+Offset(offs), Offset:Ptr(offs:p) -> uint[64](p).
+
+// LLVM Value, represented by a pointer to an LLVM value object
+LLVMValue(v), LLVMValue:Ptr(v:p) -> uint[64](p).
+
+// Pointers are LLVM Values: a pointer is represented by the LLVM value
+// describing the pointer
+Pointer(ptr) -> LLVMValue(ptr).
+lang:entity(`Pointer).
+
+// Labels are LLVM Values: a label is represented by the LLVM Value of the
+// labeled instruction
+Label(lbl) -> LLVMValue(lbl).
+lang:entity(`Label).
+
+// Callsites are labels: a callsite label refers to a call instruction
+Callsite(cs) -> Label(cs).
+lang:entity(`Callsite).
+
+// Allocation sites are labels: an allocation site label refers to an
+// allocation instruction
+Allocsite(as) -> Label(as).
+lang:entity(`Allocsite).
+
+// Functions are allocation sites: a function is represented by the allocation
+// site label of the function definition
+Function(func) -> Allocsite(func).
+lang:entity(`Function).
+
+// No address functions are functions which address is never taken
+NoAddressFunction(noaddrfunc) -> Function(noaddrfunc).
+lang:entity(`NoAddressFunction).
+
+// Valists are LLVM Values: a Valist is represented by the LLVM Value of the
+// corresponding vararg function
+Valist(vlst) -> LLVMValue(vlst).
+lang:entity(`Valist).
+
+// Type, represented by a pointer to an LLVM type object
+Type(t), Type:Ptr(t:p) -> uint[64](p).
+
+
+/* *
+ * *  , , and  macro signatures
+ * * 
+ * *  [as, parent_cntx] = new_obj ->
+ * *    Allocsite(as), Callsite(parent_cntx), Allocsite(new_obj).
+ * * 
+ * *  [cs, this_obj, caller_cntx] = callee_cntx ->
+ * *    Callsite(cs), Allocsite(this_obj), Callsite(caller_cntx),
+ * *    Callsite(callee_cntx).
+ * * 
+ * *  [obj] = as -> Allocsite(obj), Allocsite(as).
+ * */
+
+
+/* *
+ * *     EDB PREDICATES
+ * */
+
+/*
+ * GlobalContext Relation
+ */
+// This means the global_cntx context is the global context: The context in
+// which the global variables exist
+GlobalContext(global_cntx) -> Callsite(global_cntx).
+
+
+/*
+ * StartingPoint Relation
+ */
+// Every non private function should have a starting context for the analysis
+// to procceed
+StartingPoint(func, func_cntx) -> Function(func), Callsite(func_cntx).
+
+
+/*
+ * EpsilonField Relation
+ */
+// This is used to identify the epsilon field
+EpsilonField(epsilon) -> Field(epsilon).
+
+
+/*
+ * CollapseField Relation
+ */
+// This is used to identify the collapse field
+CollapseField(collapse) -> Field(collapse).
+
+
+/*
+ * OverlapsWithEpsilon Relation
+ */
+// This relation is used to represent the fact that the epsilon field ovelaps
+// with the first field of every object. (Also ovelaps with itself, the collapse
+// field, and the scalar field)
+OverlapsWithEpsilon(fld) -> Field(fld).
+
+
+/*
+ * SafeCast Relation
+ */
+// This means that field fld1 and can be used with fld2 base type objects
+SafeCast(fld1, fld2) -> Field(fld1), Field(fld2).
+
+
+/*
+ * FieldOffset Relation
+ */
+// This means that if we begin from field fld1 with offset offs we get to field
+// fld2
+FieldOffset(fld1, offs, fld2) -> Field(fld1), Offset(offs), Field(fld2).
+FieldOffset(fld1, offs, fld21), FieldOffset(fld1, offs, fld22) -> fld21 = fld22.
+
+
+/*
+ * FieldInType Relation
+ */
+// This means that the field fld has base type t
+FieldInType[fld] = t -> Field(fld), Type(t).
+FieldInType(fld, t1), FieldInType(fld, t2) -> t1 = t2.
+
+
+/*
+ * Interprocedural Relations
+ */
+// Represents a formal argument of a function.
+//  ptr     : the pointer argument
+//  pos     : the position of the pointer argument
+//  func    : the function
+Formal(ptr, pos, func) -> Pointer(ptr), Integer(pos), Function(func).
+
+// Represents the number of formal arguments of a function.
+//  n       : the number of formal arguments
+//  func    : the function
+Argc(n, func) -> Integer(n), Function(func).
+
+// Indicates whether the function is a vararg
+//  vlst    : the Valist object associated with the function
+//  func    : the vararg function
+HasValist(vlst, func) -> Valist(vlst), Function(func).
+
+// This means the function returns the value ptr.
+//  ptr     : return value
+//  func    : the function returning the value
+Ret(ptr, func) -> Pointer(ptr), Function(func).
+
+// Represents a function call
+//  fptr    : pointer to function being called
+//  cs      : the callsite label
+//  func    : the function containing the call
+Call(fptr, cs, func) -> Pointer(fptr), Callsite(cs), Function(func).
+
+// Represents an actual argument in a call site.
+//  ptr     : actual pointer argument
+//  pos     : position of pointer argument
+//  cs      : the callsite label
+//  func    : the function containing the call
+Actual(ptr, pos, cs, func) ->
+ Pointer(ptr), Integer(pos), Callsite(cs), Function(func).
+
+// Represents an llvm.va_start intrinsic
+//  ptr     : pointer being passed to llvm.va_start
+//  func    : function containing the call to llvm.va_start
+VaStart(ptr, func) -> Pointer(ptr), Function(func).
+
+// Represents an llvm.va_copy intrinsic
+//  to      : destination pointer being passed to llvm.va_copy
+//  from    : source pointer being passed to llvm.va_copy
+//  func    : function containing the call to llvm.va_copy
+VaCopy(to, from, func) -> Pointer(to), Pointer(from), Function(func).
+
+// Represents an LLVM va_arg instruction
+//  ptr     : return value of the va_arg instruction
+//  vlstptr : pointer argument of va_arg, it should point to an object that
+//            points to the containg function's Valist object
+//  func    : function containing the va_arg instruction
+VaArg(ptr, vlstptr, func) -> Pointer(ptr), Pointer(vlstptr), Function(func).
+
+// This means the specified variable is the return value of a call site.
+//  ptr     : return value
+//  cs      : the callsite label
+//  func    : the function containing the call
+CallRet(ptr, cs, func) -> Pointer(ptr), Callsite(cs), Function(func).
+
+
+/*
+ * Allocation
+ */
+// This means the specified variable is the result of an allocation.
+//  ptr     : pointer to the allocation result
+//  as      : the allocation site label
+//  func    : the function containing the allocation
+Alloca(ptr, as, func) -> Pointer(ptr), Allocsite(as), Function(func).
+
+// This means the specified variable is the result of a static allocation.
+//  ptr     : pointer to the static allocation result (a global variable)
+//  as      : the allocation site label
+StaticAlloca(ptr, as) -> Pointer(ptr), Allocsite(as).
+
+// This is used for a global variable initialization
+// fld      : the field being initialized
+// data     : the contstant value used for initialization
+// as       : the allocation site label for the global variable being
+//            initialized
+InitField(fld, data, as) -> Field(fld), Pointer(data), Allocsite(as).
+
+// This means that the pointer fptr is defined to point to the function func
+// (it is a special static allocation)
+FunctionDefinition(fptr, func) -> Pointer(fptr), Function(func).
+
+// This means that the pointer fptr is defined to point to the function
+// noaddrfunc, and that this function has not its address taken anywhere in the
+// module
+NoAddressFunctionDefinition(fptr, noaddrfunc) ->
+  Pointer(fptr), NoAddressFunction(noaddrfunc).
+
+// This means the type of objects allocated in alloction site with label as have
+// type t
+AllocsiteType[as] = t -> Allocsite(as), Type(t).
+AllocsiteType(as, t1), AllocsiteType(as, t2) -> t1 = t2.
+
+
+/*
+ * Relations for LLVM Instructions
+ */
+// This means that there is an assignment to the pointer dest from the pointer
+// source in function func
+PtrAssign(dest, source, func) -> Pointer(dest), Pointer(source), Function(func).
+
+// This means that there is a load from the pointer srcptr to the pointer ptr in
+// function func
+Load(ptr, srcptr, func) -> Pointer(ptr), Pointer(srcptr), Function(func).
+
+// This means that there is a store of the pointer data to the pointer ptr in
+// function func
+Store(ptr, data, func) -> Pointer(ptr), Pointer(data), Function(func).
+
+// This means that the pointer ptr is assigned from a getelementptr instruction
+// with the baseprt pointer as base, and the offs offset as offset in function
+// func
+GEP(ptr, baseptr, offs, func) ->
+  Pointer(ptr), Pointer(baseptr), Offset(offs), Function(func).
+
+// This means that there is a copy of the memory pointed by the pointer from to
+// the memory pointed by the pointer to in function func
+Copy(to, from, func) -> Pointer(to), Pointer(from), Function(func).
+
+// This means that there is a memory set of the memory pointed by the pointer
+// ptr in function func
+Set(ptr, func) -> Pointer(ptr), Function(func).
+
+
+/*
+ * Realtions for external code handling
+ */
+// This means there is a ptrtoint instruction with the pointer ptr as argument
+// in function func
+PtrToInt(ptr, func) -> Pointer(ptr), Function(func).
+
+// This means there is an inttoptr instruction with the pointer ptr as the
+// result in function func
+IntToPtr(ptr, func) -> Pointer(ptr), Function(func).
+
+// This means there is an integer load instruction with the pointer ptr as
+// argument in function func
+IntLoad(ptr, func) -> Pointer(ptr), Function(func).
+
+// This means there is an integer store instruction with the pointer ptr as
+// argument in function func
+IntStore(ptr, func) -> Pointer(ptr), Function(func).
+
+// This means that the pointer ptr points to objects that are visible from
+// external code (e.g. pointers to declared functions or global variables)
+ExternallyVisible(ptr) -> Pointer(ptr).
+
+// This means that the function func is externally visible.
+ExternallyVisibleFunction(func) -> Function(func).
+ExternallyVisibleFunction(func) -> ExternallyVisible(func).
+
+// This means that the pointer ptr is a formal argument of a function func that
+// is an entry point to the module
+ExternallyInitializedFormalArg(ptr, func) -> Pointer(ptr), Function(func).
+
+
+/* *
+ * *     IDB PREDICATES
+ * */
+
+/*
+ * GlobalValue Relation
+ */
+// This means the pointer ptr is a global value (global variable or function).
+// The only context related with global values should be the global context.
+// Remember that global values, cannot be re-assigned in LLVM (only
+// initialization is allowed)
+GlobalValue(ptr) -> Pointer(ptr).
+
+
+/*
+ * Assingment Relation
+ */
+// This means the pointer source is assigned to the pointer dest: dest = source
+Assign(dest, dest_cntx, source, source_cntx) ->
+  Pointer(dest), Callsite(dest_cntx), Pointer(source), Callsite(source_cntx).
+
+
+/*
+ * MemLoad Relation
+ */
+// This means the contents of pointer srcptr are loaded to pointer ptr:
+// ptr = *srcptr
+MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx) ->
+  Pointer(ptr), Callsite(ptr_cntx), Pointer(srcptr), Callsite(srcptr_cntx).
+
+
+/*
+ * MemStore Relation
+ */
+// This means the pointer data is stored in the memory pointed by pointer ptr:
+// *ptr = data
+MemStore(ptr, ptr_cntx, data, data_cntx) ->
+  Pointer(ptr), Callsite(ptr_cntx), Pointer(data), Callsite(data_cntx).
+
+
+/*
+ * MemCpy Relation
+ */
+// This means that the memory pointed by pointer from is copied to the memory
+// pointed by pointer to
+MemCpy(to, to_cntx, from, from_cntx) ->
+  Pointer(to), Callsite(to_cntx), Pointer(from), Callsite(from_cntx).
+
+
+/*
+ * MemSet Relation
+ */
+// This means that the memory pointed by pointer ptr is set to some value
+MemSet(ptr, ptr_cntx) -> Pointer(ptr), Callsite(ptr_cntx).
+
+
+/*
+ * PointsTo Relation
+ */
+// This means the pointer ptr in context ptr_cntx points to the field fld of
+// object obj
+PointsTo(obj, fld, ptr, ptr_cntx) ->
+  Allocsite(obj), Field(fld), Pointer(ptr), Callsite(ptr_cntx).
+
+
+/*
+ * ObjPointsTo Relation
+ */
+// This means the field fld1 of object obj1 points to the field fld2 of
+// object obj2
+ObjPointsTo(obj1, fld1, obj2, fld2) ->
+  Allocsite(obj1), Field(fld1), Allocsite(obj2), Field(fld2).
+
+
+/*
+ * PointsToValist relation
+ */
+// This means the pointer ptr in context ptr_cntx points to the vlst Valist
+// object
+PointsToValist(vlst, ptr, ptr_cntx) ->
+  Valist(vlst), Pointer(ptr), Callsite(ptr_cntx).
+
+
+/*
+ * ObjPointsToValist relation
+ */
+// This means that the obj object holds a pointer to the vlst Valist
+// object
+ObjPointsToValist(obj, vlst) -> Allocsite(obj), Valist(vlst).
+
+
+/*
+ * PointsToFunction Relation
+ */
+// This means that the fptr pointer points to the function func
+PointsToFunction(func, fptr, fptr_cntx) ->
+  Function(func), Pointer(fptr), Callsite(fptr_cntx).
+
+
+/*
+ * CallGraphEdge Relation
+ */
+// This means there is a call from function caller in context caller_cntx
+// to function callee in context callee_cntx, through the callsite cs
+CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx) ->
+  Function(caller), Callsite(caller_cntx), Function(callee), Callsite(callee_cntx),
+  Callsite(cs).
+
+
+/*
+ * FuncInContext Relation
+ */
+// This means the function func is reachable in the context func_cntx
+FuncInContext(func, func_cntx) -> Function(func), Callsite(func_cntx).
+
+
+/*
+ * FieldAccessed Relation
+ */
+// Determines which fields of an object are accessed.
+FieldAccessed(fld, obj) -> Field(fld), Allocsite(obj).
+
+
+/*
+ * Collapsed Relation
+ */
+// This means the object obj has been collapsed
+Collapsed(obj) -> Allocsite(obj).
+
+
+/*
+ * ForcesEscape Relation
+ */
+// This means the points-to set of the pointer ptr should be added to the
+// escaping set (set of objects that are accessible form external code)
+ForcesEscape(ptr, ptr_cntx) -> Pointer(ptr), Callsite(ptr_cntx).
+
+
+/*
+ * ObjForcesEscape Relation
+ */
+// This means the points-to set of the fld field of the object obj
+// should be added to the escaping set (set of objects that are accessible
+// form external code)
+ObjForcesEscape(obj, fld) -> Allocsite(obj), Field(fld).
+
+
+/*
+ * ObjEscapes Relation
+ */
+// This means that the object obj belongs to the escaping set, meaning
+// that it is accessible from external code)
+ObjEscapes(obj) -> Allocsite(obj).
+
+
+/*
+ * PointsToExternal Relation
+ */
+// This means that the pointer ptr may point to external locations
+PointsToExternal(ptr, ptr_cntx) -> Pointer(ptr), Callsite(ptr_cntx).
+
+
+/*
+ * ObjPointsToExternal Relation
+ */
+// This means that the fld field of the object obj may contain a pointer
+// to an external location
+ObjPointsToExternal(obj,  fld) -> Allocsite(obj), Field(fld).
+
+
+/*
+ * We should only output useful points-to relations; ie. ones that do not carry
+ * redundant information. There are two sources of redundant information:
+ * 1) pointers to collapsed objects may also point to other fields of the same
+ * objects, 2) pointers marked as pointing to external code may point to a
+ * particular piece of external code
+ */
+PointsToWithCorrectCollapse(obj, fld, ptr, ptr_cntx) ->
+  Allocsite(obj), Field(fld), Pointer(ptr), Callsite(ptr_cntx).
+UsefulPointsTo(obj, fld, ptr, ptr_cntx) ->
+  Allocsite(obj), Field(fld), Pointer(ptr), Callsite(ptr_cntx).
+ObjPointsToWithCorrectCollapse(obj1, fld1, obj2, fld2) ->
+  Allocsite(obj1), Field(fld1), Allocsite(obj2), Field(fld2).
+UsefulObjPointsTo(obj1, fld1, obj2, fld2) ->
+  Allocsite(obj1), Field(fld1), Allocsite(obj2), Field(fld2).
+
+
+
+
+
+
+/* *
+ * *     RULES
+ * */
+
+/*
+ * GlobalValue Relation
+ */
+GlobalValue(ptr) <- StaticAlloca(ptr, _).
+
+GlobalValue(fptr) <- FunctionDefinition(fptr, _).
+
+/*
+ * Assingment Relation
+ */
+// Assignment through an LLVM pointer assignment equivalent
+// instruction/intrinsic
+Assign(dest, func_cntx, source, func_cntx) <-
+  PtrAssign(dest, source, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(source).
+
+Assign(dest, func_cntx, source, global_cntx) <-
+  PtrAssign(dest, source, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(source),
+  GlobalContext(global_cntx).
+
+// Assignment through returning from a function
+Assign(dest, caller_cntx, source, callee_cntx) <-
+  CallRet(dest, cs, caller),
+  CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx),
+  !GlobalValue(source),
+  Ret(source, callee).
+
+Assign(dest, caller_cntx, source, global_cntx) <-
+  CallRet(dest, cs, caller),
+  CallGraphEdge(caller, caller_cntx, cs, callee, _),
+  GlobalValue(source),
+  GlobalContext(global_cntx),
+  Ret(source, callee).
+
+// Assignment of formal arguments with call site arguments
+Assign(dest, callee_cntx, source, caller_cntx) <-
+  Formal(dest, pos, callee),
+  Actual(source, pos, cs, caller),
+  CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx),
+  !GlobalValue(source).
+
+Assign(dest, callee_cntx, source, global_cntx) <-
+  Formal(dest, pos, callee),
+  Actual(source, pos, cs, caller),
+  CallGraphEdge(caller, _, cs, callee, callee_cntx),
+  GlobalValue(source),
+  GlobalContext(global_cntx).
+
+// Assignment through vararg lists accessed by load
+Assign(dest, callee_cntx, source, caller_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx),
+  !GlobalValue(source),
+  !GlobalValue(dest),
+  MemLoad(dest, callee_cntx, vlstptr, vlstptr_cntx),
+  PointsToValist(vlst, vlstptr, vlstptr_cntx).
+
+Assign(dest, callee_cntx, source, global_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, _, cs, callee, callee_cntx),
+  GlobalValue(source),
+  !GlobalValue(dest),
+  GlobalContext(global_cntx),
+  MemLoad(dest, callee_cntx, vlstptr, vlstptr_cntx),
+  PointsToValist(vlst, vlstptr, vlstptr_cntx).
+
+Assign(dest, global_cntx, source, caller_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, caller_cntx, cs, callee, _),
+  !GlobalValue(source),
+  GlobalValue(dest),
+  GlobalContext(global_cntx),
+  MemLoad(dest, global_cntx, vlstptr, vlstptr_cntx),
+  PointsToValist(vlst, vlstptr, vlstptr_cntx).
+
+Assign(dest, global_cntx, source, global_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, _, cs, callee, _),
+  GlobalValue(source),
+  GlobalValue(dest),
+  GlobalContext(global_cntx),
+  MemLoad(dest, global_cntx, vlstptr, vlstptr_cntx),
+  PointsToValist(vlst, vlstptr, vlstptr_cntx).
+
+// Assignment through vararg lists accessed by va_arg
+Assign(dest, callee_cntx, source, caller_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx),
+  !GlobalValue(source),
+  !GlobalValue(vlstptr),
+  VaArg(dest, vlstptr, callee),
+  PointsTo(obj, _, vlstptr, callee_cntx),
+  ObjPointsToValist(obj, vlst).
+
+Assign(dest, callee_cntx, source, global_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, _, cs, callee, callee_cntx),
+  GlobalValue(source),
+  !GlobalValue(vlstptr),
+  GlobalContext(global_cntx),
+  VaArg(dest, vlstptr, callee),
+  PointsTo(obj, _, vlstptr, callee_cntx),
+  ObjPointsToValist(obj, vlst).
+
+Assign(dest, callee_cntx, source, caller_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, caller_cntx, cs, callee, callee_cntx),
+  !GlobalValue(source),
+  GlobalValue(vlstptr),
+  GlobalContext(global_cntx),
+  VaArg(dest, vlstptr, callee),
+  PointsTo(obj, _, vlstptr, global_cntx),
+  ObjPointsToValist(obj, vlst).
+
+Assign(dest, callee_cntx, source, global_cntx) <-
+  HasValist(vlst, callee),
+  Argc(n, callee),
+  Actual(source, pos, cs, caller),
+  Integer:Value(n, ni),
+  Integer:Value(pos, posi),
+  posi > ni,
+  CallGraphEdge(caller, _, cs, callee, callee_cntx),
+  GlobalValue(source),
+  GlobalValue(vlstptr),
+  GlobalContext(global_cntx),
+  VaArg(dest, vlstptr, callee),
+  PointsTo(obj, _, vlstptr, global_cntx),
+  ObjPointsToValist(obj, vlst).
+
+
+/*
+ * MemLoad Relation
+ */
+// Load through an LLVM load equivalent instruction/intrinsic
+MemLoad(ptr, func_cntx, srcptr, func_cntx) <-
+  Load(ptr, srcptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(srcptr).
+
+MemLoad(ptr, func_cntx, srcptr, global_cntx) <-
+  Load(ptr, srcptr, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(srcptr),
+  GlobalContext(global_cntx).
+
+
+/*
+ * MemStore Relation
+ */
+// Store through an LLVM store equivalent instruction/intrinsic
+MemStore(ptr, func_cntx, data, func_cntx) <-
+  Store(ptr, data, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(data),
+  !GlobalValue(ptr).
+
+MemStore(ptr, func_cntx, data, global_cntx) <-
+  Store(ptr, data, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(data),
+  !GlobalValue(ptr),
+  GlobalContext(global_cntx).
+
+MemStore(ptr, global_cntx, data, func_cntx) <-
+  Store(ptr, data, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(ptr),
+  !GlobalValue(data),
+  GlobalContext(global_cntx).
+
+MemStore(ptr, global_cntx, data, global_cntx) <-
+  Store(ptr, data, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalValue(data),
+  GlobalContext(global_cntx).
+
+
+/*
+ * MemCpy Relation
+ */
+// Copy through an LLVM copy equivalent instruction/intrinsic
+MemCpy(to, func_cntx, from, func_cntx) <-
+  Copy(to, from, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(to),
+  !GlobalValue(from).
+
+MemCpy(to, global_cntx, from, func_cntx) <-
+  Copy(to, from, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(to),
+  !GlobalValue(from),
+  GlobalContext(global_cntx).
+
+MemCpy(to, func_cntx, from, global_cntx) <-
+  Copy(to, from, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(to),
+  GlobalValue(from),
+  GlobalContext(global_cntx).
+
+MemCpy(to, global_cntx, from, global_cntx) <-
+  Copy(to, from, func),
+  FuncInContext(func, _),
+  !GlobalValue(to),
+  !GlobalValue(from),
+  GlobalContext(global_cntx).
+
+
+/*
+ * MemSet Relation
+ */
+// Memory set through an LLVM memset equivalent instruction/intrinsic
+MemSet(ptr, func_cntx) <-
+  Set(ptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr).
+
+MemSet(ptr, global_cntx) <-
+  Set(ptr, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx).
+
+
+/*
+ * PointsTo Relation
+ */
+// PointsTo through assignment
+PointsTo(obj, fld, ptr, ptr_cntx) <-
+  Assign(ptr, ptr_cntx, source, source_cntx),
+  PointsTo(obj, fld, source, source_cntx).
+
+// PointsTo through allocation
+PointsTo(as, epsilon, ptr, ptr_cntx) <-
+  Alloca(ptr, as, func),
+  EpsilonField(epsilon),
+  FuncInContext(func, ptr_cntx).
+
+// PointsTo through static allocation
+PointsTo(as, epsilon, ptr, global_cntx) <-
+  StaticAlloca(ptr, as),
+  EpsilonField(epsilon),
+  GlobalContext(global_cntx).
+
+// PointsTo through function definition
+PointsTo(func, epsilon, fptr, global_cntx) <-
+  FunctionDefinition(fptr, func),
+  EpsilonField(epsilon),
+  GlobalContext(global_cntx).
+
+// PointsTo through structure indexing with GEP
+PointsTo(obj, fld, ptr, func_cntx) <-
+  GEP(ptr, baseptr, offs, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(baseptr),
+  PointsTo(obj, fld1, baseptr, func_cntx),
+  FieldOffset(fld1, offs, fld).
+
+PointsTo(obj, fld, ptr, func_cntx) <-
+  GEP(ptr, baseptr, offs, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(baseptr),
+  GlobalContext(global_cntx),
+  PointsTo(obj, fld1, baseptr, global_cntx),
+  FieldOffset(fld1, offs, fld).
+
+// PointsTo through structure indexing with GEP into collapsed objects
+PointsTo(obj, collapse, ptr, func_cntx) <-
+  GEP(ptr, baseptr, _, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(baseptr),
+  PointsTo(obj, _, baseptr, func_cntx),
+  Collapsed(obj),
+  CollapseField(collapse).
+
+PointsTo(obj, collapse, ptr, func_cntx) <-
+  GEP(ptr, baseptr, _, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(baseptr),
+  GlobalContext(global_cntx),
+  PointsTo(obj, _, baseptr, global_cntx),
+  Collapsed(obj),
+  CollapseField(collapse).
+
+// PointsTo through memory load
+PointsTo(obj, fld, ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(loadobj, loadfld, srcptr, srcptr_cntx),
+  ObjPointsTo(loadobj, loadfld, obj, fld).
+
+// PointsTo through pointing to a collapsed object
+PointsTo(obj, collapse, ptr, ptr_cntx) <-
+  PointsTo(obj, _, ptr, ptr_cntx),
+  Collapsed(obj),
+  CollapseField(collapse).
+
+
+/*
+ * ObjPointsTo Relation
+ */
+// ObjPointsTo through global variable initialization
+ObjPointsTo(obj1, fld1, obj2, fld2) <-
+  InitField(fld1, data, as),
+  StaticAlloca(ptr, as),
+  PointsTo(obj1, epsilon, ptr, global_cntx),
+  GlobalContext(global_cntx),
+  EpsilonField(epsilon),
+  PointsTo(obj2, fld2, data, global_cntx).
+
+// ObjPointsTo through memory store
+ObjPointsTo(obj1, fld1, obj2, fld2) <-
+  MemStore(ptr, ptr_cntx, data, data_cntx),
+  PointsTo(obj1, fld1, ptr, ptr_cntx),
+  PointsTo(obj2, fld2, data, data_cntx).
+
+// ObjPointsTo through memcpy (copying an entire object)
+ObjPointsTo(obj1, fld1, obj2, fld2) <-
+  MemCpy(to, to_cntx, from, from_cntx),
+  PointsTo(obj1, _, to, to_cntx),
+  PointsTo(srcobj, _, from, from_cntx),
+  ObjPointsTo(srcobj, fld1, obj2, fld2).
+
+// ObjPointsTo through pointing from a collapsed object: the collapse field of
+// the object may point to any field that the object points to
+ObjPointsTo(obj1, collapse, obj2, fld2) <-
+  Collapsed(obj1),
+  CollapseField(collapse),
+  ObjPointsTo(obj1, _, obj2, fld2).
+
+// ObjPointsTo through pointing to a collapsed object: the object points to the
+// collapse field
+ObjPointsTo(obj1, fld1, obj2, collapse) <-
+  Collapsed(obj2),
+  CollapseField(collapse),
+  ObjPointsTo(obj1, fld1, obj2, _).
+
+
+/*
+ * Rules that handle the fact that the first field of an object also overlaps
+ * with epsilon
+ */
+/*
+// If we load from a field that overlaps with epsilon, we also load from
+// epsilon
+PointsTo(obj, fld, ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(loadobj, loadfld, srcptr, srcptr_cntx),
+  OverlapsWithEpsilon(loadfld),
+  EpsilonField(epsilon),
+  ObjPointsTo(loadobj, epsilon, obj, fld).
+
+// If we load from epsilon, we also load from the fields that overlap with
+// epsilon
+PointsTo(obj, fld, ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(loadobj, epsilon, srcptr, srcptr_cntx),
+  EpsilonField(epsilon),
+  OverlapsWithEpsilon(loadfld),
+  ObjPointsTo(loadobj, loadfld, obj, fld).
+
+// If we store to epsilon, then we also store to the fields that overlap with
+// epsilon. Note that we only store to the fields that are accessed by the
+// object, otherwise this rule would collapse everything
+ObjPointsTo(obj1, fld1, obj2, fld2) <-
+  MemStore(ptr, ptr_cntx, data, data_cntx),
+  PointsTo(obj1, epsilon, ptr, ptr_cntx),
+  EpsilonField(epsilon),
+  FieldAccessed(fld1, obj1),
+  OverlapsWithEpsilon(fld1),
+  PointsTo(obj2, fld2, data, data_cntx).
+
+// If we store to a field that overlaps with epsilon, we also store to epsilon
+ObjPointsTo(obj1, epsilon, obj2, fld2) <-
+  MemStore(ptr, ptr_cntx, data, data_cntx),
+  PointsTo(obj1, fld1, ptr, ptr_cntx),
+  OverlapsWithEpsilon(fld1),
+  EpsilonField(epsilon),
+  PointsTo(obj2, fld2, data, data_cntx).
+*/
+PointsTo(obj, fld, ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(loadobj, loadfld, srcptr, srcptr_cntx),
+  SafeCast(loadfld, overlapfld),
+  ObjPointsTo(loadobj, overlapfld, obj, fld).
+
+ObjPointsTo(obj1, fld1, obj2, fld2) <-
+  MemStore(ptr, ptr_cntx, data, data_cntx),
+  PointsTo(obj1, fld, ptr, ptr_cntx),
+  FieldAccessed(fld1, obj1),
+  SafeCast(fld, fld1),
+  PointsTo(obj2, fld2, data, data_cntx).
+
+
+/*
+ * PointsToValist relation
+ */
+// PointsToValist through memory load
+PointsToValist(vlst, ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(obj, _, srcptr, srcptr_cntx),
+  ObjPointsToValist(obj, vlst).
+
+// PointsToValist through assignment
+PointsToValist(vlst, ptr, ptr_cntx) <-
+  Assign(ptr, ptr_cntx, source, source_cntx),
+  PointsToValist(vlst, source, source_cntx).
+
+
+/*
+ * ObjPointsToValist relation
+ */
+// ObjPointsToValist through call to llvm.va_start
+ObjPointsToValist(obj, vlst) <-
+  VaStart(ptr, func),
+  HasValist(vlst, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr),
+  PointsTo(obj, _, ptr, func_cntx).
+  
+ObjPointsToValist(obj, vlst) <-
+  VaStart(ptr, func),
+  HasValist(vlst, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx),
+  PointsTo(obj, _, ptr, global_cntx).
+
+// ObjPointsToValist through call to llvm.va_copy
+ObjPointsToValist(obj, vlst) <-
+  VaCopy(to, from, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(to),
+  !GlobalValue(from),
+  PointsTo(obj, _, to, func_cntx),
+  PointsTo(obj2, _, from, func_cntx),
+  ObjPointsToValist(obj2, vlst).
+
+ObjPointsToValist(obj, vlst) <-
+  VaCopy(to, from, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(to),
+  GlobalValue(from),
+  GlobalContext(global_cntx),
+  PointsTo(obj, _, to, func_cntx),
+  PointsTo(obj2, _, from, global_cntx),
+  ObjPointsToValist(obj2, vlst).
+
+ObjPointsToValist(obj, vlst) <-
+  VaCopy(to, from, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(to),
+  !GlobalValue(from),
+  GlobalContext(global_cntx),
+  PointsTo(obj, _, to, global_cntx),
+  PointsTo(obj2, _, from, func_cntx),
+  ObjPointsToValist(obj2, vlst).
+
+ObjPointsToValist(obj, vlst) <-
+  VaCopy(to, from, func),
+  FuncInContext(func, _),
+  GlobalValue(to),
+  GlobalValue(from),
+  GlobalContext(global_cntx),
+  PointsTo(obj, _, to, global_cntx),
+  PointsTo(obj2, _, from, global_cntx),
+  ObjPointsToValist(obj2, vlst).
+
+/*
+ * PointsToFunction Relation
+ */
+PointsToFunction(func, fptr, fptr_cntx) <-
+  PointsTo(func_obj, epsilon, fptr, fptr_cntx),
+  !GlobalValue(fptr),
+  EpsilonField(epsilon),
+  func = func_obj,
+  Function(func).
+
+PointsToFunction(func, fptr, global_cntx) <-
+  PointsTo(func_obj, epsilon, fptr, global_cntx),
+  GlobalValue(fptr),
+  GlobalContext(global_cntx),
+  EpsilonField(epsilon),
+  func = func_obj,
+  Function(func).
+
+
+/*
+ * CallGraphEdge Relation
+ */
+//FIXME _ should be replaced by the this object.
+CallGraphEdge(caller, caller_cntx, cs, callee, cs) <-
+  Call(fptr, cs, caller),
+  FuncInContext(caller, caller_cntx),
+  PointsToFunction(callee, fptr, caller_cntx).
+
+CallGraphEdge(caller, caller_cntx, cs, callee, cs) <-
+  Call(fptr, cs, caller),
+  FuncInContext(caller, caller_cntx),
+  PointsToFunction(callee, fptr, global_cntx),
+  GlobalContext(global_cntx).
+
+CallGraphEdge(caller, caller_cntx, cs, callee, cs) <-
+  Call(fptr, cs, caller),
+  FuncInContext(caller, caller_cntx),
+  NoAddressFunctionDefinition(fptr, callee).
+
+// If a function pointer is passed to an external function, then we have to
+// assume that the function pointed by the pointer may be called as well
+CallGraphEdge(caller, caller_cntx, cs, callee, cs) <-
+  ExternallyVisibleFunction(caller),
+  CallGraphEdge(callercaller, callercaller_cntx, callercs, caller, caller_cntx),
+  Actual(fptr, _, callercs, callercaller),
+  PointsToFunction(callee, fptr, callercaller_cntx),
+  cs = callercs.
+
+CallGraphEdge(caller, caller_cntx, cs, callee, cs) <-
+  ExternallyVisibleFunction(caller),
+  CallGraphEdge(callercaller, _, callercs, caller, caller_cntx),
+  Actual(fptr, _, callercs, callercaller),
+  PointsToFunction(callee, fptr, global_cntx),
+  GlobalContext(global_cntx),
+  cs = callercs.
+
+
+/*
+ * FuncInContext Relation
+ */
+FuncInContext(func, func_cntx) <-
+  StartingPoint(func, func_cntx).
+
+FuncInContext(func, func_cntx) <-
+  CallGraphEdge(_, _, _, func, func_cntx).
+
+
+/*
+ * FieldAccessed Relation
+ */
+FieldAccessed(fld, obj) <- PointsTo(obj, fld, _, _).
+FieldAccessed(fld, obj) <- ObjPointsTo(_, _, obj, fld).
+
+
+/*
+ * Collapsed Relation
+ */
+// An object is collapsed if two fields with different base types are accessed
+// in the object
+Collapsed(obj) <-
+  FieldAccessed(fld1, obj),
+  FieldInType(fld1, t1),
+  FieldAccessed(fld2, obj),
+  FieldInType(fld2, t2),
+  t1 != t2.
+
+// An object is collapsed if we attempt to access a field that does not exist in
+// the object
+Collapsed(obj) <-
+  GEP(_, baseptr, offs, func),
+  FuncInContext(func, func_cntx),
+  PointsTo(obj, fld, baseptr, func_cntx),
+  !GlobalValue(baseptr),
+  !FieldOffset(fld, offs, _).
+
+Collapsed(obj) <-
+  GEP(_, baseptr, offs, func),
+  FuncInContext(func, _),
+  PointsTo(obj, fld, baseptr, global_cntx),
+  GlobalValue(baseptr),
+  GlobalContext(global_cntx),
+  !FieldOffset(fld, offs, _).
+
+// An object is collapsed if it holds a pointer to a Valist object
+Collapsed(obj) <-
+  ObjPointsToValist(obj, _).
+
+// An object is collapsed if it is pointed by a pointer passed as argument to
+// memmory set
+Collapsed(obj) <-
+  MemSet(ptr, ptr_cntx),
+  PointsTo(obj, _, ptr, ptr_cntx).
+
+// An object is collapsed if a memcpy call copies an object of different type in
+// the first object's memory
+Collapsed(obj) <-
+  MemCpy(to, to_cntx, from, from_cntx),
+  PointsTo(obj, _, to, to_cntx),
+  as1 = obj,
+  AllocsiteType(as1, t1),
+  PointsTo(srcobj, _, from, from_cntx),
+  as2 = srcobj,
+  AllocsiteType(as2, t2),
+  t1 != t2.
+
+
+/*
+ * ForcesEscape Relation
+ */
+// A pointer forces its points-to set to escape if it is an argument of ptrtoint
+ForcesEscape(ptr, func_cntx) <-
+  PtrToInt(ptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr).
+
+ForcesEscape(ptr, global_cntx) <-
+  PtrToInt(ptr, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx).
+
+// A pointer forces its points-to set to escape if it is passed as a parameter
+// to an escaping function
+ForcesEscape(ptr, caller_cntx) <-
+  Actual(ptr, _, cs, caller),
+  CallGraphEdge(caller, caller_cntx, cs, callee, _),
+  !GlobalValue(ptr),
+  callee = callee_obj,
+  ObjEscapes(callee_obj).
+
+ForcesEscape(ptr, global_cntx) <-
+  Actual(ptr, _, cs, caller),
+  CallGraphEdge(caller, _, cs, callee, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx),
+  callee = callee_obj,
+  ObjEscapes(callee_obj).
+
+// A pointer forces its points-to set to escape if it is the return value of
+// an escaping function
+ForcesEscape(ptr, func_cntx) <-
+  Ret(ptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr),
+  func = func_obj,
+  ObjEscapes(func_obj).
+
+ForcesEscape(ptr, global_cntx) <-
+  Ret(ptr, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx),
+  func = func_obj,
+  ObjEscapes(func_obj).
+
+
+/*
+ * ObjForcesEscape Relation
+ */
+// An object's field forces its points-to set to escape if it is loaded as an
+// integer
+ObjForcesEscape(obj, fld) <-
+  IntLoad(ptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr),
+  PointsTo(obj, fld, ptr, func_cntx).
+
+ObjForcesEscape(obj, fld) <-
+  IntLoad(ptr, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx),
+  PointsTo(obj, fld, ptr, global_cntx).
+
+
+/*
+ * ObjEscapes Relation
+ */
+// Objects pointed by externally visible global variables and functions belong
+// to the escaping set
+ObjEscapes(obj) <-
+  ExternallyVisible(ptr),
+  PointsTo(obj, _, ptr, _).
+
+// Objects that belong to the points-to set of a pointer or an object field,
+// which forces its points-to set to escape, should be added to the escaping set 
+ObjEscapes(obj) <-
+  PointsTo(obj, _, ptr, ptr_cntx),
+  ForcesEscape(ptr, ptr_cntx).
+
+ObjEscapes(obj) <-
+  ObjPointsTo(obj1, fld, obj, _),
+  ObjForcesEscape(obj1, fld).
+
+// Objects that are pointed by objects already in the escaping set, also belong
+// in the escaping set
+ObjEscapes(obj) <-
+  ObjEscapes(obj1),
+  ObjPointsTo(obj1, _, obj, _).
+
+
+/*
+ * PointsToExternal Relation
+ */
+// A pointer points to the escaping set if it points to an escaping object
+PointsToExternal(ptr, ptr_cntx) <-
+  PointsTo(obj, _, ptr, ptr_cntx),
+  ObjEscapes(obj).
+
+// A pointer may point to the escaping set if it is the result of an inttoptr
+// instruction
+PointsToExternal(ptr, func_cntx) <-
+  IntToPtr(ptr, func),
+  FuncInContext(func, func_cntx).
+
+// A pointer may point to the escaping set if it is assigned from a pointer that
+// may point to the escaping set 
+PointsToExternal(ptr, ptr_cntx) <-
+  Assign(ptr, ptr_cntx, source, source_cntx),
+  PointsToExternal(source, source_cntx).
+
+// A pointer may point to the escaping set if it is the result of a load from an
+// object field that may point to the escaping set
+PointsToExternal(ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsTo(loadobj, loadfld, srcptr, srcptr_cntx),
+  ObjPointsToExternal(loadobj, loadfld).
+
+// A pointer may point to the escaping set if it is the result of a load from a
+// pointer that may point to the escaping set
+PointsToExternal(ptr, ptr_cntx) <-
+  MemLoad(ptr, ptr_cntx, srcptr, srcptr_cntx),
+  PointsToExternal(srcptr, srcptr_cntx).
+
+// A pointer may point to the escaping set if it is the result of a GEP from a
+// base pointer that may point to the escaping set
+PointsToExternal(ptr, func_cntx) <-
+  GEP(ptr, baseptr, _, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(baseptr),
+  PointsToExternal(baseptr, func_cntx).
+
+PointsToExternal(ptr, func_cntx) <-
+  GEP(ptr, baseptr, _, func),
+  FuncInContext(func, func_cntx),
+  GlobalValue(baseptr),
+  GlobalContext(global_cntx),
+  PointsToExternal(baseptr, global_cntx).
+
+// A formal argument of a function that is an entry point of the module may
+// point to the escaping set
+PointsToExternal(ptr, func_cntx) <-
+  ExternallyInitializedFormalArg(ptr, func),
+  FuncInContext(func, func_cntx).
+
+// A pointer may point to the escaping set if it is a formal argument of an
+// escaping function
+PointsToExternal(ptr, func_cntx) <-
+  Formal(ptr, _, func),
+  FuncInContext(func, func_cntx),
+  func = func_obj,
+  ObjEscapes(func_obj).
+
+// A formal argument of a function that is passed as argument to an external
+// function call may point to the escaping set
+PointsToExternal(ptr, func_cntx) <-
+  ExternallyVisibleFunction(caller),
+  CallGraphEdge(caller, _, _, func, func_cntx),
+  Formal(ptr, _, func).
+
+// A pointer may point to the escaping set if it is the return value of a call
+// to an escaping function
+PointsToExternal(ptr, caller_cntx) <-
+  CallRet(ptr, cs, caller),
+  CallGraphEdge(caller, caller_cntx, cs, callee, _),
+  callee = callee_obj,
+  ObjEscapes(callee_obj).
+
+
+/*
+ * ObjPointsToExternal Relation
+ */
+// An object field points to the escaping set if it points to an escaping object
+ObjPointsToExternal(obj, fld) <-
+  ObjPointsTo(obj, fld, obj1, _),
+  ObjEscapes(obj1).
+
+// An object field may point to the escaping set if we store a pointer that may
+// point to the escaping set there
+ObjPointsToExternal(obj, fld) <-
+  MemStore(ptr, ptr_cntx, data, data_cntx),
+  PointsTo(obj, fld, ptr, ptr_cntx),
+  PointsToExternal(data, data_cntx).
+
+// An object field may point to the escaping set if a memcpy operation stored a
+// pointer that may point to the escaping set there
+ObjPointsToExternal(obj, fld) <-
+  MemCpy(to, to_cntx, from, from_cntx),
+  PointsTo(obj, _, to, to_cntx),
+  PointsTo(srcobj, _, from, from_cntx),
+  ObjPointsToExternal(srcobj, fld).
+
+// All fields of an object may point to the escaping set if a memcpy operation
+// copied an escaping object to the memory of the object
+ObjPointsToExternal(obj, fld) <-
+  MemCpy(to, to_cntx, from, from_cntx),
+  PointsTo(obj, _, to, to_cntx),
+  PointsToExternal(from, from_cntx),
+  FieldAccessed(fld, obj).
+
+// An object field may point to the escaping set if we store an integer there
+ObjPointsToExternal(obj, fld) <-
+  IntStore(ptr, func),
+  FuncInContext(func, func_cntx),
+  !GlobalValue(ptr),
+  PointsTo(obj, fld, ptr, func_cntx).
+
+ObjPointsToExternal(obj, fld) <-
+  IntStore(ptr, func),
+  FuncInContext(func, _),
+  GlobalValue(ptr),
+  GlobalContext(global_cntx),
+  PointsTo(obj, fld, ptr, global_cntx).
+
+
+/*
+ * We should only output useful points-to relations; ie. ones that do not carry
+ * redundant information. There are two sources of redundant information:
+ * 1) pointers to collapsed objects may also point to other fields of the same
+ * objects, 2) pointers marked as pointing to external code may point to a
+ * particular piece of external code
+ */
+
+PointsToWithCorrectCollapse(obj, fld, ptr, ptr_cntx) <-
+  !Collapsed(obj),
+  PointsTo(obj, fld, ptr, ptr_cntx).
+
+PointsToWithCorrectCollapse(obj, collapse, ptr, ptr_cntx) <-
+  Collapsed(obj),
+  CollapseField(collapse),
+  PointsTo(obj, _, ptr, ptr_cntx).
+
+UsefulPointsTo(obj, fld, ptr, ptr_cntx) <-
+  !PointsToExternal(ptr, ptr_cntx),
+  PointsToWithCorrectCollapse(obj, fld, ptr, ptr_cntx).
+
+UsefulPointsTo(obj, fld, ptr, ptr_cntx) <-
+  PointsToExternal(ptr, ptr_cntx),
+  !ObjEscapes(obj),
+  PointsToWithCorrectCollapse(obj, fld, ptr, ptr_cntx).
+
+ObjPointsToWithCorrectCollapse(obj1, fld1, obj2, fld2) <-
+  !Collapsed(obj1),
+  !Collapsed(obj2),
+  ObjPointsTo(obj1, fld1, obj2, fld2).
+
+ObjPointsToWithCorrectCollapse(obj1, collapse, obj2, fld2) <-
+  CollapseField(collapse),
+  Collapsed(obj1),
+  !Collapsed(obj2),
+  ObjPointsTo(obj1, _, obj2, fld2).
+
+ObjPointsToWithCorrectCollapse(obj1, fld1, obj2, collapse) <-
+  CollapseField(collapse),
+  !Collapsed(obj1),
+  Collapsed(obj2),
+  ObjPointsTo(obj1, fld1, obj2, _).
+
+ObjPointsToWithCorrectCollapse(obj1, collapse, obj2, collapse) <-
+  CollapseField(collapse),
+  Collapsed(obj1),
+  Collapsed(obj2),
+  ObjPointsTo(obj1, _, obj2, _).
+
+UsefulObjPointsTo(obj1, fld1, obj2, fld2) <-
+  !ObjEscapes(obj1),
+  !ObjPointsToExternal(obj1, fld1),
+  ObjPointsToWithCorrectCollapse(obj1, fld1, obj2, fld2).
+
+UsefulObjPointsTo(obj1, fld1, obj2, fld2) <-
+  !ObjEscapes(obj1),
+  !ObjEscapes(obj2),
+  ObjPointsToExternal(obj1, fld1),
+  ObjPointsToWithCorrectCollapse(obj1, fld1, obj2, fld2).
+
+
+
+
+
+/* *
+ * *     OUTPUT
+ * */
+
+/*
+ * Output relation signatures for simple 1cs+h context sensitive analysis
+ */
+PointsToOut(ptr, obj, fld) -> Pointer(ptr), Allocsite(obj), Field(fld).
+
+ObjPointsToOut(obj1, fld1, obj2, fld2) ->
+  Allocsite(obj1), Field(fld1), Allocsite(obj2), Field(fld2).
+
+CollapsedOut(obj) -> Allocsite(obj).
+
+ObjEscapesOut(obj) -> Allocsite(obj).
+
+PointsToExternalOut(ptr) -> Pointer(ptr).
+
+ObjPointsToExternalOut(obj, fld) -> Allocsite(obj), Field(fld).
+
+/*
+ * Output relation implementation for simple 1cs+h context sensitive analysis
+ */
+PointsToOut(ptr, obj, fld) <-
+  UsefulPointsTo(obj, fld, ptr, _).
+
+PointsToOut(fptr, noaddrfunc, epsilon) <-
+  EpsilonField(epsilon),
+  NoAddressFunctionDefinition(fptr, noaddrfunc).
+
+ObjPointsToOut(obj1, fld1, obj2, fld2) <-
+  UsefulObjPointsTo(obj1, fld1, obj2, fld2).
+
+CollapsedOut(obj) <-
+  Collapsed(obj).
+
+ObjEscapesOut(obj) <-
+  ObjEscapes(obj).
+
+PointsToExternalOut(ptr) <-
+  PointsToExternal(ptr, _).
+
+ObjPointsToExternalOut(obj, fld) <-
+  ObjPointsToExternal(obj, fld).
+

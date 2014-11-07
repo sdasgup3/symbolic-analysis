@@ -1,0 +1,164 @@
+//===- AliasAnalysisInterface.cpp -----------------------------------------===//
+//
+//===----------------------------------------------------------------------===//
+//
+// Implementation of the basic points-to interface.
+//
+//===----------------------------------------------------------------------===//
+
+#include "checker/interface/AliasAnalysisInterface.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/ADT/Statistic.h"
+
+using namespace llvm;
+using std::map;
+using std::string;
+
+namespace aachecker {
+
+static cl::opt<bool> InterprocQueries("interproc-queries", cl::init(false),
+    cl::desc("Allow interprocedural queries for the construction of the alias analysis interface"));
+
+static const Function *getParent(const Value *V) {
+  if (const Instruction *inst = dyn_cast<Instruction>(V))
+    return inst->getParent()->getParent();
+
+  if (const Argument *arg = dyn_cast<Argument>(V))
+    return arg->getParent();
+
+  return NULL;
+}
+
+static bool differentParent(const Value *O1, const Value *O2) {
+
+  const Function *F1 = getParent(O1);
+  const Function *F2 = getParent(O2);
+
+  return F1 && F2 && F1 != F2;
+}
+
+char AliasAnalysisInterface::ID;
+
+static RegisterPass<AliasAnalysisInterface>
+X("AA-interface", "Interface to aa analysis group");
+
+const AbstractLocSet AliasAnalysisInterface::EmptySet;
+
+bool AliasAnalysisInterface::runOnModule(Module &M) {
+  AA = &getAnalysis<AliasAnalysis>();
+
+  interprocQueries = InterprocQueries;
+
+  // Visit the module to add allocation site locations
+  visit(M);
+
+  // Does not modify module.
+  return false;
+}
+
+//
+// AllocationSiteFinder visit functions: They are used to discover allocation
+// sites
+//
+void AliasAnalysisInterface::visitAllocaInst(llvm::AllocaInst &AI) {
+  AllocSiteMap[&AI];
+}
+
+void AliasAnalysisInterface::visitCallSite(llvm::CallSite CS) {
+  Instruction *CallInstr = CS.getInstruction();
+  if (isAllocationFn(CallInstr, AA->getTargetLibraryInfo(), true))
+    AllocSiteMap[CallInstr];
+}
+
+void AliasAnalysisInterface::visitFunction(llvm::Function &F) {
+  AllocSiteMap[&F];
+}
+
+void AliasAnalysisInterface::visitModule(Module &M) {
+  Module::global_iterator GlIt = M.global_begin(), GlItEnd = M.global_end();
+  for (; GlIt != GlItEnd; ++GlIt)
+    AllocSiteMap[&*GlIt];
+}
+
+
+//
+// For a given value in the module, returns a pointer to a set representing
+// the set of abstract memory locations that the value can point to.
+//
+const AbstractLocSet *
+AliasAnalysisInterface::getAbstractLocSetForValue(const Value *V) {
+  //
+  // Check if this abstract location set has been already constructed.
+  //
+  if (AbsLocSets.find(V) != AbsLocSets.end())
+    return &AbsLocSets[V];
+
+  // Else, iteratate through the allocation sites and determine which should be
+  // included in the abstract location set for the value
+  AllocSiteMapType::iterator I = AllocSiteMap.begin(), E = AllocSiteMap.end();
+  for (; I != E; ++I) {
+    const Value * AlllocSite = I->first;
+    AbstractLoc *Loc = &I->second;
+
+    // If interprocedural queries are not allowed we have to assume that
+    // pointers from different functions may allias 
+    if (!interprocQueries && differentParent(AlllocSite, V)) {
+      AbsLocSets[V].insert(Loc);
+      continue;
+    }
+
+    if (AA->alias(AlllocSite, V))
+      AbsLocSets[V].insert(Loc);
+  }
+
+  return &AbsLocSets[V];
+}
+
+//
+// For a given value in the module, returns the set of all abstract memory
+// locations reachable from that value.
+//
+const AbstractLocSet *
+AliasAnalysisInterface::getReachableAbstractLocSetForValue(const Value *V) {
+  return &EmptySet;
+}
+
+// Returns true if this is an allocation site
+bool AliasAnalysisInterface::isAllocationSite(const Value *V) {
+  return AllocSiteMap.find(V) != AllocSiteMap.end();
+}
+
+// Returns the abstract location corresponding to external nodes.
+const AbstractLoc *AliasAnalysisInterface::getExternalLoc() {
+  return &ExternalAbsLoc;
+}
+
+// Return all abstract locations that may be created by an allocation site.
+const AbstractLocSet &AliasAnalysisInterface::getAllocatableLocs(const Value *V) {
+  assert(isAllocationSite(V) && "This call makes no sense");
+
+  //
+  // Check if this allocation site has been already constructed.
+  //
+  if (AllocatableLocSets.find(V) != AllocatableLocSets.end())
+    return AllocatableLocSets[V];
+
+  // Else, create the set of allocatable abstract locations for this allocation
+  // site.
+  AllocatableLocSets[V].insert(&AllocSiteMap[V]);
+
+  return AllocatableLocSets[V];
+}
+
+
+
+}
