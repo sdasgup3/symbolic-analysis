@@ -3605,6 +3605,18 @@ void Executor::executeMemoryOperation(ExecutionState &state,
             addSensitiveInstruction(state);
       }
     }
+#if false    
+    if(target){
+      Instruction *I = target->inst; 
+      DataLayout *TD = kmodule->targetData;
+      const Type* Ty = I->getType();
+      const IntegerType *ITy = TD->getIntPtrType(Ty->getContext()) ;
+      if(Ty->isPointerTy() || Ty == ITy) {
+        terminateStateOnError(state, "load instruction of pointer type", "pacheck");  
+      }
+    }
+#endif    
+
     bool inBounds;
     solver->setTimeout(stpTimeout);
     if (true == UseConcretePath) {
