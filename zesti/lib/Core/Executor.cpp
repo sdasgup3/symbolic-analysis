@@ -3565,6 +3565,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                                       ref<Expr> address,
                                       ref<Expr> value /* undef if read */,
                                       KInstruction *target /* undef if write */) {
+  klee_message("THEO: Inside executeMemoryOperation");
+
   Expr::Width type = (isWrite ? value->getWidth() : 
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
@@ -3575,6 +3577,25 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       address = state.constraints.simplifyExpr(address);
     if (isWrite && !isa<ConstantExpr>(value))
       value = state.constraints.simplifyExpr(value);
+  }
+
+  // Collect memory objects that may be pointed by the address pointer
+  ResolutionList rl1;  
+  solver->setTimeout(stpTimeout);
+  bool incomplete1 = state.addressSpace.resolve(state, solver, address, rl1,
+                                               0, stpTimeout, false);
+  solver->setTimeout(0);
+
+  std::string address_str;
+  std::stringstream rso_addr(address_str);
+  address->print(rso_addr);
+  klee_message("Points to set of %s:", rso_addr.str().c_str());
+  for (ResolutionList::iterator i = rl1.begin(), ie = rl1.end(); i != ie; ++i) {
+    const MemoryObject *mo = i->first;
+    std::string alloc_site_str;
+    llvm::raw_string_ostream rso_alloc(alloc_site_str);
+    mo->allocSite->print(rso_alloc);
+    klee_message("\t%s", rso_alloc.str().c_str());
   }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
