@@ -740,7 +740,12 @@ void ZESTSearcher::update(ExecutionState *current,
   // initial seeds are already in the mapping
   if (current) {
     for (it = addedStates.begin(), ie = addedStates.end(); it != ie; ++it) {
-      assert((*it)->depth >= baseInstruction && "state depth must be greater than originating instruction depth");
+      /* baseInstruction is signed int and has to take negative values
+       * ExecutionState::depth is unsigned int, so the mere
+       * comparision depth >= baseInstruction will generate error because of implicit
+       * conversion of signed baseInstruction to unsigned. So added the fix. 
+       */
+      assert((baseInstruction < 0 || (*it)->depth >= static_cast<unsigned int>(baseInstruction)) && "state depth must be greater than originating instruction depth");
       itos->insert(std::pair<int, ExecutionState*>(baseInstruction, *it));
     }
   } else {
