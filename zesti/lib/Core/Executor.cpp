@@ -2946,6 +2946,7 @@ void Executor::run(ExecutionState &initialState) {
   while (!states.empty() && !haltExecution) {
     ExecutionState &state = searcher->selectState();
     if (state.markForDeletion || (LESTMaxBranchTime > 0 && state.branchTime && *state.branchTime > LESTMaxBranchTime)) {
+      klee_message("Search Begin: Disable Seeding");
       disableSeeding(state);
       updateStates(&state);
       continue;
@@ -3539,9 +3540,9 @@ void Executor::resolveExact(ExecutionState &state,
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
   if(DebugPrintInstructions) {
-    klee_message("DSAND: in  addSensitiveInstruction");
-    llvm::errs() << *(state.prevPC->inst);
-    llvm::errs() << "\n";
+    //klee_message("DSAND: in  addSensitiveInstruction");
+    //llvm::errs() << *(state.prevPC->inst);
+    //llvm::errs() << "\n";
   }
   if (Concolic == stage)
     return;
@@ -3565,7 +3566,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                                       ref<Expr> address,
                                       ref<Expr> value /* undef if read */,
                                       KInstruction *target /* undef if write */) {
-  klee_message("THEO: Inside executeMemoryOperation");
 
   Expr::Width type = (isWrite ? value->getWidth() : 
                      getWidthForLLVMType(target->inst->getType()));
