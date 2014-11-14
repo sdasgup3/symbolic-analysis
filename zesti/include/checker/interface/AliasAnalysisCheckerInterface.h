@@ -3,7 +3,6 @@
 
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
-#include <map>
 #include <set>
 
 namespace aachecker {
@@ -12,23 +11,6 @@ typedef char AbstractLoc;
 typedef std::set<const AbstractLoc *> AbstractLocSet;
 
 class AliasAnalysisCheckerInterface : public llvm::ModulePass {
-protected:
-
-  // The abstract location for the external node
-  AbstractLoc ExternalAbsLoc;
-
-  // A map of abstract locations allocatable at a given allocation site
-  std::map<const llvm::Value *, AbstractLocSet> AllocatableLocSets;
-
-  // A map of abstract locations that a given value may point to
-  std::map<const llvm::Value *, AbstractLocSet> AbsLocSets;
-
-  // A map of abstract locations reachable by a given value
-  std::map<const llvm::Value *, AbstractLocSet> ReachableAbsLocSets;
-  
-  // The empty set of abstract locations
-  static const AbstractLocSet EmptySet;
-
 public:
   static char ID;
   AliasAnalysisCheckerInterface() : llvm::ModulePass(ID) {}

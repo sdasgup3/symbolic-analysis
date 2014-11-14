@@ -147,6 +147,11 @@ AliasAnalysisInterface::~AliasAnalysisInterface() {
 }
 
 //
+// The empty set of abstract locations
+//
+const AbstractLocSet AliasAnalysisInterface::EmptySet;
+
+//
 // For a given value in the module, returns a pointer to a set representing
 // the set of abstract memory locations that the value can point to.
 //

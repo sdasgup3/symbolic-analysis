@@ -3,6 +3,7 @@
 
 #include "checker/interface/AliasAnalysisCheckerInterface.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include <map>
 #include <set>
 
 namespace aachecker {
@@ -16,6 +17,21 @@ class AliasAnalysisInterfaceVisitor;
 class AliasAnalysisInterface : public AliasAnalysisCheckerInterface {
 
 private:
+  // The abstract location for the external node
+  AbstractLoc ExternalAbsLoc;
+
+  // A map of abstract locations allocatable at a given allocation site
+  std::map<const llvm::Value *, AbstractLocSet> AllocatableLocSets;
+
+  // A map of abstract locations that a given value may point to
+  std::map<const llvm::Value *, AbstractLocSet> AbsLocSets;
+
+  // A map of abstract locations reachable by a given value
+  std::map<const llvm::Value *, AbstractLocSet> ReachableAbsLocSets;
+  
+  // The empty set of abstract locations
+  static const AbstractLocSet EmptySet;
+
   // The alias analysis to be checked
   llvm::AliasAnalysis *AA;
 
@@ -36,11 +52,12 @@ public:
   bool runOnModule(llvm::Module &M);
 
   // AliasAnalysisCheckerInterface implementation methods
-  const AbstractLocSet *getAbstractLocSetForValue(const llvm::Value *V);
-  const AbstractLocSet *getReachableAbstractLocSetForValue(const llvm::Value *V);
-  bool isAllocationSite(const llvm::Value *V);
-  const AbstractLoc *getExternalLoc();
-  const AbstractLocSet &getAllocatableLocs(const llvm::Value *V);
+  virtual const AbstractLocSet *getAbstractLocSetForValue(const llvm::Value *V);
+  virtual const AbstractLocSet *getReachableAbstractLocSetForValue(
+    const llvm::Value *V);
+  virtual bool isAllocationSite(const llvm::Value *V);
+  virtual const AbstractLoc *getExternalLoc();
+  virtual const AbstractLocSet &getAllocatableLocs(const llvm::Value *V);
 };
 
 }

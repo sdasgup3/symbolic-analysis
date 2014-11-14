@@ -9,6 +9,4 @@ char AliasAnalysisCheckerInterface::ID;
 static RegisterAnalysisGroup<AliasAnalysisCheckerInterface>
   A("Alias Analysis Checker Interface");
 
-const AbstractLocSet AliasAnalysisCheckerInterface::EmptySet;
-
 }

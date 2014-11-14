@@ -59,7 +59,11 @@ bool PointsToInterface::runOnModule(Module &M) {
   return false;
 }
 
+//
+// The empty set of abstract locations
+//
 const AbstractLocSet PointsToInterface::EmptySet;
+
 
 //
 // Return a pointer to the abstract location for the specified node-field
