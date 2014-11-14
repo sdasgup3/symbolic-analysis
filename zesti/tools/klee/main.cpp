@@ -25,6 +25,12 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/PassManager.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Target/TargetLibraryInfo.h"
+#include "checker/interface/AliasAnalysisInterface.h"
+
+
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
 #undef PACKAGE_BUGREPORT
 #undef PACKAGE_NAME
@@ -208,6 +214,11 @@ namespace {
   Watchdog("watchdog",
            cl::desc("Use a watchdog process to enforce --max-time."),
            cl::init(0));
+
+  cl::opt<bool>
+  PerformAliasAnalysisChecks("aachecks",
+                             cl::desc("Perform alias/pointer analysis checks."),
+                             cl::init(0));
 }
 
 extern cl::opt<double> MaxTime;
@@ -1348,6 +1359,24 @@ void reserveFirstFds() {
   }
 }
 
+// Apply the specified alias/pointer analysis and create the interface
+// that will be used for checking - for now we always apply a
+// basicaa+tbaa chain
+aachecker::AliasAnalysisCheckerInterface *
+applyAliasAnalysis(PassManager &passes, Module *m) {
+  passes.add(new TargetLibraryInfo());
+  passes.add(createNoAAPass());
+  passes.add(createBasicAliasAnalysisPass());
+  passes.add(createTypeBasedAliasAnalysisPass());
+
+  aachecker::AliasAnalysisCheckerInterface *aainterface =
+    new aachecker::AliasAnalysisInterface();
+  passes.add(aainterface);
+
+  passes.run(*m);
+
+  return aainterface;
+}
 
 int main(int argc, char **argv, char **envp) {  
   reserveFirstFds();
@@ -1464,7 +1493,6 @@ int main(int argc, char **argv, char **envp) {
                ec.message().c_str());
   }
   mainModule = getLazyBitcodeModule(BufferPtr.get(), getGlobalContext(), &ErrorMsg);
-
 #endif
   if (mainModule) {
     if (mainModule->MaterializeAllPermanently(&ErrorMsg)) {
@@ -1476,7 +1504,6 @@ int main(int argc, char **argv, char **envp) {
     klee_error("error loading program '%s': %s", InputFile.c_str(),
                ErrorMsg.c_str());
 #endif
-
 
   if (UseConcretePath) {
     MakeArgsSymbolic(mainModule);
@@ -1614,6 +1641,7 @@ int main(int argc, char **argv, char **envp) {
 
   Interpreter::InterpreterOptions IOpts;
   IOpts.MakeConcreteSymbolic = MakeConcreteSymbolic;
+  IOpts.PerformAliasAnalysisChecks = PerformAliasAnalysisChecks;
   KleeHandler *handler = new KleeHandler(pArgc, pArgv);
   Interpreter *interpreter = 
     theInterpreter = Interpreter::create(IOpts, handler);
@@ -1628,6 +1656,18 @@ int main(int argc, char **argv, char **envp) {
   const Module *finalModule = 
     interpreter->setModule(mainModule, Opts);
   externalsAndGlobalsCheck(finalModule);
+
+  // Apply the specified alias/pointer analysis and provide the
+  // interpreter with the interface object, that will be used for
+  // checking
+  PassManager aliasAnalysisPasses;
+  if (PerformAliasAnalysisChecks) {
+    aachecker::AliasAnalysisCheckerInterface *aainterface =
+      applyAliasAnalysis(aliasAnalysisPasses, mainModule);
+    if (!aainterface)
+      klee_error("Unable to apply requested pointer/alias analysis");
+    interpreter->setAliasAnalysisResult(aainterface);
+  }
 
   if (ReplayPathFile != "") {
     interpreter->setReplayPath(&replayPath);

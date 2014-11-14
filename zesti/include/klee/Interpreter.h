@@ -21,6 +21,10 @@ class Function;
 class Module;
 }
 
+namespace aachecker {
+  class AliasAnalysisCheckerInterface;
+}
+
 namespace klee {
 class ExecutionState;
 class Interpreter;
@@ -75,8 +79,12 @@ public:
     /// symbolic execution on concrete programs.
     unsigned MakeConcreteSymbolic;
 
+    /// A flag that determines whether alias/pointer analysis checks
+    /// are performed or not
+    bool PerformAliasAnalysisChecks;
+
     InterpreterOptions()
-      : MakeConcreteSymbolic(false)
+      : MakeConcreteSymbolic(false), PerformAliasAnalysisChecks(false)
     {}
   };
 
@@ -126,6 +134,14 @@ public:
                                  int argc,
                                  char **argv,
                                  char **envp) = 0;
+
+  /*** Alias analysis information ***/
+
+  virtual void setAliasAnalysisResult(
+                 aachecker::AliasAnalysisCheckerInterface *value) = 0;
+
+  virtual aachecker::AliasAnalysisCheckerInterface *
+  getAliasAnalysisResult(void) = 0;
 
   /*** Runtime options ***/
 

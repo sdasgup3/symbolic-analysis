@@ -105,6 +105,9 @@ private:
   InterpreterHandler *interpreterHandler;
   Searcher *searcher;
 
+  // This object contains the alias analysis result
+  aachecker::AliasAnalysisCheckerInterface *aainterface;
+
   ExternalDispatcher *externalDispatcher;
   TimingSolver *solver;
   MemoryManager *memory;
@@ -442,6 +445,17 @@ public:
                                  int argc,
                                  char **argv,
                                  char **envp);
+
+  /*** Alias analysis information ***/
+
+  virtual void
+  setAliasAnalysisResult(aachecker::AliasAnalysisCheckerInterface *value) {
+    aainterface = value;
+  }
+
+  virtual aachecker::AliasAnalysisCheckerInterface *getAliasAnalysisResult() {
+    return aainterface;
+  }
 
   /*** Runtime options ***/
   

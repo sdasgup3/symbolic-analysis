@@ -89,6 +89,8 @@
 #include "llvm/Support/Process.h"
 #endif
 
+#include "checker/interface/AliasAnalysisCheckerInterface.h"
+
 #include <cassert>
 #include <algorithm>
 #include <iostream>
@@ -428,6 +430,7 @@ Executor::Executor(const InterpreterOptions &opts,
     kmodule(0),
     interpreterHandler(ih),
     searcher(0),
+    aainterface(0),
     externalDispatcher(new ExternalDispatcher()),
     statsTracker(0),
     pathWriter(0),
@@ -3579,23 +3582,76 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = state.constraints.simplifyExpr(value);
   }
 
-  // Collect memory objects that may be pointed by the address pointer
-  ResolutionList rl1;  
-  solver->setTimeout(stpTimeout);
-  bool incomplete1 = state.addressSpace.resolve(state, solver, address, rl1,
-                                               0, stpTimeout, false);
-  solver->setTimeout(0);
+  // If this is a read, perform an alias/pointer check
+  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+    // Set of alias analysis abstract locations that may be pointed
+    // by the address pointer in the current state
+    aachecker::AbstractLocSet foundTargets;
 
-  std::string address_str;
-  std::stringstream rso_addr(address_str);
-  address->print(rso_addr);
-  klee_message("Points to set of %s:", rso_addr.str().c_str());
-  for (ResolutionList::iterator i = rl1.begin(), ie = rl1.end(); i != ie; ++i) {
-    const MemoryObject *mo = i->first;
-    std::string alloc_site_str;
-    llvm::raw_string_ostream rso_alloc(alloc_site_str);
-    mo->allocSite->print(rso_alloc);
-    klee_message("\t%s", rso_alloc.str().c_str());
+    // Collect memory objects that may be pointed by the address pointer
+    // in this state
+    ResolutionList rl;  
+    solver->setTimeout(stpTimeout);
+    if (state.addressSpace.resolve(state, solver, address, rl,
+                                   0, stpTimeout, false)) {
+        terminateStateEarly(state, "Query timed out (resolve).");
+    }
+    solver->setTimeout(0);
+
+    // Debug message
+    std::string address_str;
+    std::stringstream rso_addr(address_str);
+    address->print(rso_addr);
+    klee_message("AACHECKS: Points to set of symbolic address %s:",
+                 rso_addr.str().c_str());
+
+    // Add abstract locations corresponding to found memory objects to the
+    // foundTargets set
+    for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
+      const MemoryObject *mo = i->first;
+
+      // Debug message
+      std::string alloc_site_str;
+      llvm::raw_string_ostream rso_alloc(alloc_site_str);
+      mo->allocSite->print(rso_alloc);
+      klee_message("AACHECKS:%s", rso_alloc.str().c_str());
+
+      const aachecker::AbstractLocSet &als =
+        aainterface->getAllocatableLocs(mo->allocSite);
+      for (aachecker::AbstractLocSet::iterator alsI = als.begin(),
+           alsIE = als.end(); alsI != alsIE; ++alsI) {
+        const aachecker::AbstractLoc *al = *alsI;
+        foundTargets.insert(al);
+        // Debug message
+        klee_message("AACHECKS:  {%p}", al);
+      }
+    }
+
+    // Points-to set of the base address according to the pointer analysis
+    const Value *baseValue =
+      dyn_cast<LoadInst>(target->inst)->getPointerOperand();
+    const aachecker::AbstractLocSet &pointsToSet =
+      *aainterface->getAbstractLocSetForValue(baseValue);
+
+    // Debug message
+    std::string base_str;
+    llvm::raw_string_ostream rso_base(base_str);
+    baseValue->print(rso_base);
+    klee_message("AACHECKS: Points to set of base value %s:",
+                 rso_base.str().c_str());
+    for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
+         ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
+      const aachecker::AbstractLoc *pts = *ptsI;
+      klee_message("AACHECKS:  {%p}", pts);
+    }
+
+    // Assert that pointsToSet is a subset of foundTargets
+    for (aachecker::AbstractLocSet::iterator tgtI = foundTargets.begin(),
+         tgtIE = foundTargets.end(); tgtI != tgtIE; ++tgtI)
+      if (pointsToSet.find(*tgtI) == pointsToSet.end()) {
+        terminateStateOnError(state, "failed alias/pointer analysis check",
+                              "aachecks");
+      }
   }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
@@ -3626,17 +3682,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
             addSensitiveInstruction(state);
       }
     }
-#if false    
-    if(target){
-      Instruction *I = target->inst; 
-      DataLayout *TD = kmodule->targetData;
-      const Type* Ty = I->getType();
-      const IntegerType *ITy = TD->getIntPtrType(Ty->getContext()) ;
-      if(Ty->isPointerTy() || Ty == ITy) {
-        terminateStateOnError(state, "load instruction of pointer type", "pacheck");  
-      }
-    }
-#endif    
 
     bool inBounds;
     solver->setTimeout(stpTimeout);
