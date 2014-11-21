@@ -3543,9 +3543,7 @@ void Executor::resolveExact(ExecutionState &state,
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
   if(DebugPrintInstructions) {
-    //klee_message("DSAND: in  addSensitiveInstruction");
-    //llvm::errs() << *(state.prevPC->inst);
-    //llvm::errs() << "\n";
+    llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
   }
   if (Concolic == stage)
     return;
@@ -3676,6 +3674,9 @@ void Executor::executeMemoryOperation(ExecutionState &state,
 
     if (isOnConcretePath(state) && !PatchCheckBefore) {
       // remember the instruction if it is sensitive
+      if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+        addSensitiveInstruction(state);
+      }
       if (EveryAccessIsSensitive ||
           state.lastInstructionGEP ||
           !dyn_cast<ConstantExpr>(boundsCheck)) {
