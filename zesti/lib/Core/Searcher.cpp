@@ -61,7 +61,11 @@ sensitive operations (default 0). use with \
               cl::init(500),
               cl::desc("maximum distance to search for states before a \
 sensitive operation (default 500)"));
-
+  cl::opt<unsigned>
+  DepthOffset("zest-depth-offset",
+              cl::init(2),
+              cl::desc("maximum distance to search for states before a \
+sensitive operation (default 2)"));
   cl::opt<bool>
   DiscardFarStates("zest-discard-far-states",
                   cl::init(true),
@@ -716,7 +720,8 @@ ExecutionState &ZESTSearcher::selectState() {
 
     assert(ok && "invalid state selected");
     states.push_back(state);
-    state->seedingTTL = seBound(distance) - state->seedingInstExecuted + 1;
+    //state->seedingTTL = seBound(distance) - state->seedingInstExecuted + 1;
+    state->seedingTTL = seBound(distance) - state->seedingInstExecuted + (int)DepthOffset;
     state->seedingInstExecuted = seBound(distance);
   } else {
   // if no state is found consume the rest of the states directly
