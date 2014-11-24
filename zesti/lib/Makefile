@@ -9,6 +9,6 @@
 
 LEVEL=..
 
-PARALLEL_DIRS=Basic Support Expr Solver Module Core llvmpa checker jf-rt
+PARALLEL_DIRS=Basic Support Expr Solver Module Core
 
 include $(LEVEL)/Makefile.common

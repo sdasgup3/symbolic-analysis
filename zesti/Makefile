@@ -14,7 +14,7 @@ LEVEL = .
 
 include $(LEVEL)/Makefile.config
 
-DIRS = lib tools runtime datalog
+DIRS = lib tools runtime
 EXTRA_DIST = include
 
 # Only build support directories when building unittests.
