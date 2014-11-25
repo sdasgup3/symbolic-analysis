@@ -181,6 +181,30 @@ AC_MSG_RESULT([$llvm_build_mode])
 AC_SUBST(LLVM_BUILD_MODE,$llvm_build_mode)
 
 dnl **************************************************************************
+dnl User options related to llvmpa.
+AC_ARG_WITH(llvmpasrc,
+  AS_HELP_STRING([--with-llvmpasrc], [llvmpa source tree root]),,
+  [with_llvmpasrc=none])
+AC_MSG_CHECKING([llvmpa src dir])
+if test X${with_llvmpasrc} = Xnone ; then
+  AC_MSG_ERROR([llvmpa source tree path was not specified: use --with-llvmpasrc to specify path])
+fi
+llvmpa_src=`cd $with_llvmpasrc 2> /dev/null; pwd`
+AC_MSG_RESULT([$llvmpa_src])
+AC_SUBST(LLVMPA_SRC,$llvmpa_src)
+
+AC_ARG_WITH(llvmpaobj,
+  AS_HELP_STRING([--with-llvmpaobj], [llvmpa obj tree root]),,
+  [with_llvmpaobj=none])
+AC_MSG_CHECKING([llvmpa obj dir])
+if test X${with_llvmpaobj} = Xnone ; then
+  AC_MSG_ERROR([llvmpa obj tree path was not specified: use --with-llvmpaobj to specify path])
+fi
+llvmpa_obj=`cd $with_llvmpaobj 2> /dev/null; pwd`
+AC_MSG_RESULT([$llvmpa_obj])
+AC_SUBST(LLVMPA_OBJ,$llvmpa_obj)
+
+dnl **************************************************************************
 dnl User option to enable uClibc support.
 
 AC_ARG_WITH(uclibc,
