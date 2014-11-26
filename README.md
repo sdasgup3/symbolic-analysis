@@ -63,6 +63,10 @@ or
 ./configure --with-llvmsrc=/home/sdasgup3/llvm/llvm-3.4.2/llvm-src/ --with-llvmobj=/home/sdasgup3/llvm/llvm-3.4.2/llvm-build/ --with-stp=/home/sdasgup3/SymbolicAnalysis/stp-r940/install/ --with-uclibc=/home/sdasgup3/SymbolicAnalysis/klee-uclibc/ --enable-posix-runtime
 */
 
+When building zesti add these options to configure to help it find llvmpa:
+--with-llvmpasrc=/path/to/llvmpa/src/tree
+--with-llvmpaobj=/path/to/llvmpa/obj/tree
+
 /* In case stuck in problems
 sudo ln -s /usr/include/x86_64-linux-gnu/asm/ /usr/include/asm
 In case of prblms like C compiler not working

@@ -410,6 +410,7 @@ ExmplDir    := $(PROJ_OBJ_ROOT)/$(BuildMode)/examples
 LLVMLibDir  := $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/lib
 LLVMToolDir := $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/bin
 LLVMExmplDir:= $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/examples
+LLVMPALibDir  := $(LLVMPA_OBJ_ROOT)/$(LLVM_BUILD_MODE)/lib
 
 #--------------------------------------------------------------------
 # Locations of shared libraries
@@ -638,13 +639,14 @@ ifeq ($(HOST_OS),AuroraUX)
 CPP.BaseFlags += -include llvm/System/Solaris.h
 endif # !HOST_OS - AuroraUX.
 
-LD.Flags      += -L$(LibDir) -L$(LLVMLibDir)
+LD.Flags      += -L$(LibDir) -L$(LLVMLibDir) -L$(LLVMPALibDir)
 CPP.BaseFlags += -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 # All -I flags should go here, so that they don't confuse llvm-config.
 CPP.Flags     += $(sort -I$(PROJ_OBJ_DIR) -I$(PROJ_SRC_DIR) \
 	         $(patsubst %,-I%/include,\
 	         $(PROJ_OBJ_ROOT) $(PROJ_SRC_ROOT) \
-	         $(LLVM_OBJ_ROOT) $(LLVM_SRC_ROOT))) \
+	         $(LLVM_OBJ_ROOT) $(LLVM_SRC_ROOT) \
+             $(LLVMPA_SRC_ROOT))) \
 	         $(CPP.BaseFlags)
 
 ifeq ($(BUILD_COMPONENT), 1)
@@ -746,6 +748,7 @@ $(DESTDIR)$(PROJ_bindir) $(DESTDIR)$(PROJ_libdir) $(DESTDIR)$(PROJ_includedir) $
 
 .PRECIOUS: $(ObjDir)/.dir $(LibDir)/.dir $(ToolDir)/.dir $(ExmplDir)/.dir
 .PRECIOUS: $(LLVMLibDir)/.dir $(LLVMToolDir)/.dir $(LLVMExmplDir)/.dir
+.PRECIOUS: $(LLVMPALibDir)/.dir
 
 #---------------------------------------------------------
 # Handle the DIRS options for sequential construction
@@ -908,6 +911,13 @@ LLVMLibsOptions := $(patsubst %.a.o, -l%, $(addsuffix .o, $(LLVMLIBS)))
 LLVMLibsOptions := $(patsubst %.o, $(LLVMLibDir)/%.o, $(LLVMLibsOptions))
 LLVMUsedLibs    := $(patsubst %.a.o, lib%.a, $(addsuffix .o, $(LLVMLIBS)))
 LLVMLibsPaths   := $(addprefix $(LLVMLibDir)/,$(LLVMUsedLibs))
+endif
+
+ifdef LLVMPALIBS
+LLVMPALibsOptions := $(patsubst %.a.o, -l:lib%.a, $(addsuffix .o, $(LLVMPALIBS)))
+LLVMPALibsOptions := $(patsubst %.o, $(LLVMPALibDir)/%.o, $(LLVMPALibsOptions))
+LLVMPAUsedLibs    := $(patsubst %.a.o, lib%.a, $(addsuffix .o, $(LLVMPALIBS)))
+LLVMPALibsPaths   := $(addprefix $(LLVMPALibDir)/,$(LLVMPAUsedLibs))
 endif
 
 # Loadable module for Win32 requires all symbols resolved for linking.
@@ -1125,11 +1135,11 @@ SharedLibKindMessage := "Loadable Module"
 else
 SharedLibKindMessage := "Shared Library"
 endif
-$(LibName.SO): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(SharedLibDir)/.dir
+$(LibName.SO): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths) $(SharedLibDir)/.dir
 	$(Echo) Linking $(BuildMode) $(SharedLibKindMessage) \
 	  $(notdir $@)
 	$(Verb) $(Link) $(SharedLinkOptions) -o $@ $(ObjectsO) \
-	  $(ProjLibsOptions) $(LLVMLibsOptions) $(LIBS)
+	  $(ProjLibsOptions) $(LLVMLibsOptions) $(LLVMPALibsOptions) $(LIBS)
 else
 $(LibName.SO): $(ObjectsO) $(SharedLibDir)/.dir
 	$(Echo) Linking $(BuildMode) Shared Library $(notdir $@)
@@ -1401,10 +1411,11 @@ else
 $(ToolBuildPath): $(ToolDir)/.dir
 endif
 
-$(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths)
+$(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths)
 	$(Echo) Linking $(BuildMode) executable $(TOOLNAME) $(StripWarnMsg)
 	$(Verb) $(Link) -o $@ $(TOOLLINKOPTS) $(ObjectsO) $(ProjLibsOptions) \
-	$(LLVMLibsOptions) $(ExtraLibs) $(TOOLLINKOPTSB) $(LIBS)
+	$(LLVMLibsOptions) $(LLVMPALibsOptions) $(ExtraLibs) $(TOOLLINKOPTSB) \
+	$(LIBS)
 	$(Echo) ======= Finished Linking $(BuildMode) Executable $(TOOLNAME) \
           $(StripWarnMsg)
 
@@ -2215,6 +2226,8 @@ printvars::
 	$(Echo) "PROJ_OBJ_DIR : " '$(PROJ_OBJ_DIR)'
 	$(Echo) "LLVM_SRC_ROOT: " '$(LLVM_SRC_ROOT)'
 	$(Echo) "LLVM_OBJ_ROOT: " '$(LLVM_OBJ_ROOT)'
+	$(Echo) "LLVMPA_SRC_ROOT: " '$(LLVMPA_SRC_ROOT)'
+	$(Echo) "LLVMPA_OBJ_ROOT: " '$(LLVMPA_OBJ_ROOT)'
 	$(Echo) "PROJ_prefix  : " '$(PROJ_prefix)'
 	$(Echo) "PROJ_bindir  : " '$(PROJ_bindir)'
 	$(Echo) "PROJ_libdir  : " '$(PROJ_libdir)'
