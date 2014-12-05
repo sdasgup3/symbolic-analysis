@@ -49,6 +49,12 @@ https://github.com/klee/klee-uclibc/wiki/Getting-started
 */
 make -j2
 ```
+Build llvmpa
+---------------
+```
+../llvmpa/configure --with-llvmsrc=/home/sdasgup3/llvm/llvm-3.4.2/llvm-src/ --with-llvmobj=/home/sdasgup3/llvm/llvm-3.4.2/llvm-build --with-gcc-toolchain=/software/gcc-4.8.2 --with-extra-options=-std=c++11 --with-extra-ld-options="-Wl,-rpath,/software/gcc-4.8.2/lib64" --enable-optimized --enable-assertions
+make
+```
 
 Build klee/zesti
 --------------
