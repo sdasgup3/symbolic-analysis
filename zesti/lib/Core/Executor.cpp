@@ -3629,7 +3629,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     const Value *baseValue =
       dyn_cast<LoadInst>(target->inst)->getPointerOperand();
     const aachecker::AbstractLocSet &pointsToSet =
-      *aainterface->getAbstractLocSetForValue(baseValue);
+      *(aainterface->getAbstractLocSetForValue(baseValue));
 
     // Debug message
     std::string base_str;
@@ -3640,7 +3640,11 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
          ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
       const aachecker::AbstractLoc *pts = *ptsI;
-      klee_message("AACHECKS:  {%p}", pts);
+      const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
+      std::string pts_str;
+      llvm::raw_string_ostream rso_pts(pts_str);
+      ptsAllocSite->print(rso_pts);
+      klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
     }
 
     // Assert that pointsToSet is a subset of foundTargets
