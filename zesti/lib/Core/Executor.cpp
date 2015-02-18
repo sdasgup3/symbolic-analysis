@@ -1959,10 +1959,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       /* check for a call to exit and keep the return value. should also check for _exit? */
       
       #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
-        if (f->getName().str() == "exit" && arguments.size() > 0) {
+        if (f->getName().str() == "exit" && arguments.size() > 0)
       #else
-        if (f->getNameStr() == "exit" && arguments.size() > 0) {
-      #endif    
+        if (f->getNameStr() == "exit" && arguments.size() > 0)
+      #endif
+      {
         ConstantExpr* returnCode = dyn_cast<ConstantExpr>(arguments[0]);
         if (returnCode) {
           programExitCode = (int32_t)returnCode->getZExtValue();
