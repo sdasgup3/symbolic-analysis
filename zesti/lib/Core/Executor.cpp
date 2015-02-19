@@ -3601,7 +3601,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     std::string address_str;
     std::stringstream rso_addr(address_str);
     address->print(rso_addr);
-    klee_message("AACHECKS: Points to set of symbolic address %s:",
+    klee_message("AACHECKS: Found target(s) of the symbolic address %s:",
                  rso_addr.str().c_str());
 
     // Add abstract locations corresponding to found memory objects to the
@@ -3612,8 +3612,13 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       // Debug message
       std::string alloc_site_str;
       llvm::raw_string_ostream rso_alloc(alloc_site_str);
-      mo->allocSite->print(rso_alloc);
-      klee_message("AACHECKS:%s", rso_alloc.str().c_str());
+      if (const Function *f = dyn_cast<Function>(mo->allocSite)) {
+        klee_message("AACHECKS:Function %s", f->getName().str().c_str());
+      }
+      else {
+        mo->allocSite->print(rso_alloc);
+        klee_message("AACHECKS:%s", rso_alloc.str().c_str());
+      }
 
       // If the allocation site of the memory object is a vararg function
       // call, meaning that the object represents a vararg list, we omit
@@ -3622,7 +3627,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite))
         if (Function *cf = ci->getCalledFunction())
           if (cf->isVarArg()) {
-            klee_message("AACHECKS: Skipping this allocation site...");
+            klee_message("AACHECKS: Skipping adding this the found targets..");
             continue;
           }
 
@@ -3647,7 +3652,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     std::string base_str;
     llvm::raw_string_ostream rso_base(base_str);
     baseValue->print(rso_base);
-    klee_message("AACHECKS: Points to set of base value %s:",
+    klee_message("AACHECKS: Points to set of base value %s"
+                 " (according to pointer anlysis):",
                  rso_base.str().c_str());
     for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
          ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
@@ -3655,11 +3661,17 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
       std::string pts_str;
       llvm::raw_string_ostream rso_pts(pts_str);
-      ptsAllocSite->print(rso_pts);
-      klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
+      if (const Function *f = dyn_cast<Function>(ptsAllocSite)) {
+        klee_message("AACHECKS:Function %s {%p}",
+                     f->getName().str().c_str(), pts);
+      }
+      else {
+        ptsAllocSite->print(rso_pts);
+        klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
+      }
     }
 
-    // Assert that pointsToSet is a subset of foundTargets
+    // Assert that pointsToSet is a superset of foundTargets
     for (aachecker::AbstractLocSet::iterator tgtI = foundTargets.begin(),
          tgtIE = foundTargets.end(); tgtI != tgtIE; ++tgtI)
       if (pointsToSet.find(*tgtI) == pointsToSet.end()) {
