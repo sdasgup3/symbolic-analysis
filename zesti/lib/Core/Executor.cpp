@@ -3615,6 +3615,17 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       mo->allocSite->print(rso_alloc);
       klee_message("AACHECKS:%s", rso_alloc.str().c_str());
 
+      // If the allocation site of the memory object is a vararg function
+      // call, meaning that the object represents a vararg list, we omit
+      // the check since such object is not visible to pointer analysis
+      // algorithms.
+      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite))
+        if (Function *cf = ci->getCalledFunction())
+          if (cf->isVarArg()) {
+            klee_message("AACHECKS: Skipping this allocation site...");
+            continue;
+          }
+
       const aachecker::AbstractLocSet &als =
         aainterface->getAllocatableLocs(mo->allocSite);
       for (aachecker::AbstractLocSet::iterator alsI = als.begin(),
