@@ -3624,12 +3624,15 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       // call, meaning that the object represents a vararg list, we omit
       // the check since such object is not visible to pointer analysis
       // algorithms.
-      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite))
-        if (Function *cf = ci->getCalledFunction())
+      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
+        if (Function *cf = ci->getCalledFunction()) {
           if (cf->isVarArg()) {
-            klee_message("AACHECKS: Skipping adding this the found targets..");
+            klee_message("AACHECKS: Skipping adding this to the"
+                         " found targets..");
             continue;
           }
+        }
+      }
 
       const aachecker::AbstractLocSet &als =
         aainterface->getAllocatableLocs(mo->allocSite);
