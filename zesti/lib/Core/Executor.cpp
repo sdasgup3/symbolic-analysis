@@ -3634,8 +3634,26 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         }
       }
 
+      // If the allocation site of the memory object is the first instruction
+      // of main, then the memory object is the array pointed by argv.
+      // Our analysis represents that allocation site with the argv pointer.
+      // In klee, the first instruction of main is a call to
+      // klee_mark_args_symbolic
+      bool isArgv = false;
+      Value *argvPtr = 0;
+      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
+        Function *mainFn = kmodule->module->getFunction("main");
+        assert(mainFn);
+        assert(mainFn->arg_size() >= 2);
+        Function::arg_iterator argI = mainFn->arg_begin();
+        argvPtr = (++argI);
+        assert(argvPtr->getType()->isPointerTy() &&
+               argvPtr->getName().equals("argv"));
+        isArgv = ci == mainFn->begin()->begin();
+      }
+
       const aachecker::AbstractLocSet &als =
-        aainterface->getAllocatableLocs(mo->allocSite);
+        aainterface->getAllocatableLocs(isArgv ? argvPtr : mo->allocSite);
       for (aachecker::AbstractLocSet::iterator alsI = als.begin(),
            alsIE = als.end(); alsI != alsIE; ++alsI) {
         const aachecker::AbstractLoc *al = *alsI;
