@@ -52,6 +52,8 @@ make -j2
 Build llvmpa
 ---------------
 ```
+setenv LD_LIBRARY_PATH /software/gcc-4.8.2/lib64:/software/gcc-4.8.2/lib:/usr/lib64
+module load gcc
 ../llvmpa/configure --with-llvmsrc=/home/sdasgup3/llvm/llvm-3.4.2/llvm-src/ --with-llvmobj=/home/sdasgup3/llvm/llvm-3.4.2/llvm-build --with-gcc-toolchain=/software/gcc-4.8.2 --with-extra-options=-std=c++11 --with-extra-ld-options="-Wl,-rpath,/software/gcc-4.8.2/lib64" --enable-optimized --enable-assertions
 make
 ```
