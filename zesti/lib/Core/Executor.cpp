@@ -180,6 +180,10 @@ instrumented with enable_seeding intrinsic calls."));
                          cl::desc("Print instructions during execution."));
 
   cl::opt<bool>
+  DebugPrintAAChecks("debug-print-aachecks", 
+                         cl::desc("Print debug information about aachecks."));
+
+  cl::opt<bool>
   DebugCheckForImpliedValues("debug-check-for-implied-values");
 
 
@@ -3597,27 +3601,29 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     }
     solver->setTimeout(0);
 
-    // Debug message
-    std::string address_str;
-    std::stringstream rso_addr(address_str);
-    address->print(rso_addr);
-    klee_message("AACHECKS: Found target(s) of the symbolic address %s:",
-                 rso_addr.str().c_str());
+    if (DebugPrintAAChecks) {
+      std::string address_str;
+      std::stringstream rso_addr(address_str);
+      address->print(rso_addr);
+      klee_message("AACHECKS: Found target(s) of the symbolic address %s:",
+                   rso_addr.str().c_str());
+    }
 
     // Add abstract locations corresponding to found memory objects to the
     // foundTargets set
     for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
       const MemoryObject *mo = i->first;
 
-      // Debug message
-      std::string alloc_site_str;
-      llvm::raw_string_ostream rso_alloc(alloc_site_str);
-      if (const Function *f = dyn_cast<Function>(mo->allocSite)) {
-        klee_message("AACHECKS:Function %s", f->getName().str().c_str());
-      }
-      else {
-        mo->allocSite->print(rso_alloc);
-        klee_message("AACHECKS:%s", rso_alloc.str().c_str());
+      if (DebugPrintAAChecks) {
+        std::string alloc_site_str;
+        llvm::raw_string_ostream rso_alloc(alloc_site_str);
+        if (const Function *f = dyn_cast<Function>(mo->allocSite)) {
+          klee_message("AACHECKS:Function %s", f->getName().str().c_str());
+        }
+        else {
+          mo->allocSite->print(rso_alloc);
+          klee_message("AACHECKS:%s", rso_alloc.str().c_str());
+        }
       }
 
       // If the allocation site of the memory object is a vararg function
@@ -3627,8 +3633,10 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
         if (Function *cf = ci->getCalledFunction()) {
           if (cf->isVarArg()) {
-            klee_message("AACHECKS: Skipping adding this to the"
-                         " found targets..");
+            if (DebugPrintAAChecks) {
+              klee_message("AACHECKS: Skipping adding this to the"
+                           " found targets..");
+            }
             continue;
           }
         }
@@ -3658,8 +3666,10 @@ void Executor::executeMemoryOperation(ExecutionState &state,
            alsIE = als.end(); alsI != alsIE; ++alsI) {
         const aachecker::AbstractLoc *al = *alsI;
         foundTargets.insert(al);
-        // Debug message
-        klee_message("AACHECKS:  {%p}", al);
+
+        if (DebugPrintAAChecks) {
+          klee_message("AACHECKS:  {%p}", al);
+        }
       }
     }
 
@@ -3669,26 +3679,27 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     const aachecker::AbstractLocSet &pointsToSet =
       *(aainterface->getAbstractLocSetForValue(baseValue));
 
-    // Debug message
-    std::string base_str;
-    llvm::raw_string_ostream rso_base(base_str);
-    baseValue->print(rso_base);
-    klee_message("AACHECKS: Points to set of base value %s"
-                 " (according to pointer anlysis):",
-                 rso_base.str().c_str());
-    for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
-         ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
-      const aachecker::AbstractLoc *pts = *ptsI;
-      const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
-      std::string pts_str;
-      llvm::raw_string_ostream rso_pts(pts_str);
-      if (const Function *f = dyn_cast<Function>(ptsAllocSite)) {
-        klee_message("AACHECKS:Function %s {%p}",
-                     f->getName().str().c_str(), pts);
-      }
-      else {
-        ptsAllocSite->print(rso_pts);
-        klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
+    if (DebugPrintAAChecks) {
+      std::string base_str;
+      llvm::raw_string_ostream rso_base(base_str);
+      baseValue->print(rso_base);
+      klee_message("AACHECKS: Points to set of base value %s"
+                   " (according to pointer anlysis):",
+                   rso_base.str().c_str());
+      for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
+           ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
+        const aachecker::AbstractLoc *pts = *ptsI;
+        const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
+        std::string pts_str;
+        llvm::raw_string_ostream rso_pts(pts_str);
+        if (const Function *f = dyn_cast<Function>(ptsAllocSite)) {
+          klee_message("AACHECKS:Function %s {%p}",
+                       f->getName().str().c_str(), pts);
+        }
+        else {
+          ptsAllocSite->print(rso_pts);
+          klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
+        }
       }
     }
 
