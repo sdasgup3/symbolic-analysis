@@ -53,9 +53,9 @@ for.body:                                         ; preds = %for.cond
   %arrayidx = getelementptr inbounds [2 x %struct.S]* @data, i32 0, i64 %idxprom
   store %struct.S* %arrayidx, %struct.S** %z, align 8
   %6 = load %struct.S** %z, align 8
-  %x4 = getelementptr inbounds %struct.S* %6, i32 0, i32 0 ; shows buggy behaviour if klee_assume is not used on %x, otherwise it will make the index symbolic
-                                                           ; which may lead to x4 pointing to many spurious objects
-  %7 = load i32* %x4, align 4
+  %x4 = getelementptr inbounds %struct.S* %6, i32 0, i32 0 
+  %7 = load i32* %x4, align 4                        ; shows buggy behaviour if klee_assume is not used on %x, otherwise it will make the index symbolic
+                                                   ; which may lead to x4 pointing to many spurious objects
   store i32 %7, i32* %S, align 4
   br label %for.inc
 
