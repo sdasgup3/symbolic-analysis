@@ -26,9 +26,9 @@ entry:
   %call = call i32 @pthread_key_create(i32* @key, void (i8*)* null) nounwind
   %0 = load i32* @key, align 4
   %1 = bitcast i32* %data to i8*
-  %call1 = call i32 @pthread_setspecific(i32 %0, i8* %1) nounwind
+  %call1 = call i32 @pthread_setspecific(i32 %0, i8* %1) nounwind ; HERE 
   %2 = load i32* @key, align 4
-  %call2 = call i8* @pthread_getspecific(i32 %2) nounwind
+  %call2 = call i8* @pthread_getspecific(i32 %2) nounwind         ; HERE
   %3 = bitcast i8* %call2 to i32*
   store i32* %3, i32** %data2, align 8
   %4 = load i32** %data2, align 8
