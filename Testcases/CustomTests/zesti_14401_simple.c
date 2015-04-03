@@ -1,8 +1,5 @@
-#include <string.h>
 #include"klee.h"
 
-
-#include <getopt.h>
 
 struct S {
   int x, y; 
