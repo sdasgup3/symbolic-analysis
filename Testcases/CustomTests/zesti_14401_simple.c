@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
   struct S* z;
 
   klee_make_symbolic(&x, sizeof(x), "X");
-  klee_assume(x >= 0 && x <= 1 );
+ klee_assume(x >= 0 &  x <= 1 );
 
   for(i = 0 ; i < 1 ; i ++) {
     z   = &data[x++];
