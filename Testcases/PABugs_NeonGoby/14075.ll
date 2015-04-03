@@ -4,7 +4,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ;The return value of pthread_getspecific may alias with previous arguments to pthread_setspecific.  In the attached ll, %call2 and %data alias. But, DSAA reports it as NoAlias. 
 ;It seems impractical to add summary for all external library calls. 
-; Should AA treat external library calls conservatively if it cannot find corresponding function summaries?
 ;http://llvm.org/bugs/show_bug.cgi?id=14075
 
 @key = common global i32 0, align 4
