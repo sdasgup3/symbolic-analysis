@@ -4,7 +4,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.S = type { i32, i32 }
 
-@data = global [2 x %struct.S] [%struct.S { i32 1, i32 2 }, %struct.S { i32 3, i32 4 }], align 16
+@main.data = private unnamed_addr constant [2 x %struct.S] [%struct.S { i32 1, i32 2 }, %struct.S { i32 3, i32 4 }], align 16
 @.str = private unnamed_addr constant [2 x i8] c"X\00", align 1
 
 ; Function Attrs: nounwind uwtable
@@ -17,64 +17,50 @@ entry:
   %x = alloca i32, align 4
   %S = alloca i32, align 4
   %z = alloca %struct.S*, align 8
+  %data = alloca [2 x %struct.S], align 16
   store i32 0, i32* %retval
   store i32 %argc, i32* %argc.addr, align 4
   store i8** %argv, i8*** %argv.addr, align 8
   store i32 0, i32* %x, align 4
-  %0 = bitcast i32* %x to i8*
-  call void @klee_make_symbolic(i8* %0, i64 4, i8* getelementptr inbounds ([2 x i8]* @.str, i32 0, i32 0))
-  %1 = load i32* %x, align 4
-  %cmp = icmp sge i32 %1, 0
-  br i1 %cmp, label %land.rhs, label %land.end
-
-land.rhs:                                         ; preds = %entry
-  %2 = load i32* %x, align 4
-  %cmp1 = icmp sle i32 %2, 1
-  br label %land.end
-
-land.end:                                         ; preds = %land.rhs, %entry
-  %3 = phi i1 [ false, %entry ], [ %cmp1, %land.rhs ]
-  %land.ext = zext i1 %3 to i32
-  %conv = sext i32 %land.ext to i64
-  call void @klee_assume(i64 %conv)
+  %0 = bitcast [2 x %struct.S]* %data to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %0, i8* bitcast ([2 x %struct.S]* @main.data to i8*), i64 16, i32 16, i1 false)
+  %1 = bitcast i32* %x to i8*
+  call void @klee_make_symbolic(i8* %1, i64 4, i8* getelementptr inbounds ([2 x i8]* @.str, i32 0, i32 0))
   store i32 0, i32* %i, align 4
   br label %for.cond
 
-for.cond:                                         ; preds = %for.inc, %land.end
-  %4 = load i32* %i, align 4
-  %cmp2 = icmp slt i32 %4, 1
-  br i1 %cmp2, label %for.body, label %for.end
+for.cond:                                         ; preds = %for.inc, %entry
+  %2 = load i32* %i, align 4
+  %cmp = icmp slt i32 %2, 1
+  br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %5 = load i32* %x, align 4
-  %inc = add nsw i32 %5, 1
-  store i32 %inc, i32* %x, align 4
-  %idxprom = sext i32 %5 to i64
-  %arrayidx = getelementptr inbounds [2 x %struct.S]* @data, i32 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [2 x %struct.S]* %data, i32 0, i64 2
   store %struct.S* %arrayidx, %struct.S** %z, align 8
-  %6 = load %struct.S** %z, align 8
-  %x4 = getelementptr inbounds %struct.S* %6, i32 0, i32 0 
-  %7 = load i32* %x4, align 4                        ; shows buggy behaviour if klee_assume is not used on %x, otherwise it will make the index symbolic
-                                                   ; which may lead to x4 pointing to many spurious objects
-  store i32 %7, i32* %S, align 4
+  %3 = load %struct.S** %z, align 8
+  %x1 = getelementptr inbounds %struct.S* %3, i32 0, i32 0
+  %4 = load i32* %x1, align 4
+  store i32 %4, i32* %S, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %8 = load i32* %i, align 4
-  %inc5 = add nsw i32 %8, 1
-  store i32 %inc5, i32* %i, align 4
+  %5 = load i32* %i, align 4
+  %inc = add nsw i32 %5, 1
+  store i32 %inc, i32* %i, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
   ret i32 0
 }
 
-declare void @klee_make_symbolic(i8*, i64, i8*) #1
+; Function Attrs: nounwind
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i32, i1) #1
 
-declare void @klee_assume(i64) #1
+declare void @klee_make_symbolic(i8*, i64, i8*) #2
 
 attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nounwind }
+attributes #2 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
 

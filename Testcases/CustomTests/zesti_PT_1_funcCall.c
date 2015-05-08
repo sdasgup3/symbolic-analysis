@@ -3,8 +3,11 @@
 #include<stdlib.h>
 
 
-int func(int x, int y) {
+int func(int u, int v) {
 
+  int x=1 , y=2;
+  klee_make_symbolic(&x, sizeof(x), "x");
+    klee_make_symbolic(&y, sizeof(y), "y");
   int*  p = (int *)malloc(sizeof(int));
   if(0 != x*y) {
     p = (int *)malloc(4);
@@ -21,8 +24,6 @@ int func(int x, int y) {
 int main(int argc, char** argv) {
   int x=1 , y=2;
 
-  klee_make_symbolic(&x, sizeof(x), "x");
-    klee_make_symbolic(&y, sizeof(y), "y");
 
  return   func(x,y);
 }
