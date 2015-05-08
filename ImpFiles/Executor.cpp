@@ -46,17 +46,38 @@
 #include "klee/Internal/Module/KModule.h"
 #include "klee/Internal/Support/FloatEvaluation.h"
 #include "klee/Internal/System/Time.h"
+#include "klee/Internal/System/MemoryUsage.h"
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/TypeBuilder.h"
+#else
 #include "llvm/Attributes.h"
 #include "llvm/BasicBlock.h"
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
 #include "llvm/LLVMContext.h"
-#endif
 #include "llvm/Module.h"
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+#include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
+#include "llvm/TypeBuilder.h"
+#endif
+#endif
+
+
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CallSite.h"
@@ -67,11 +88,8 @@
 #else
 #include "llvm/Support/Process.h"
 #endif
-#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
-#include "llvm/Target/TargetData.h"
-#else
-#include "llvm/DataLayout.h"
-#endif
+
+#include "checker/interface/AliasAnalysisCheckerInterface.h"
 
 #include <cassert>
 #include <algorithm>
@@ -94,9 +112,6 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
-bool in_checkerfunc = false;
-Instruction* GlobSI = NULL;
-TargetData *TD ;
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
 unsigned PatchCheckBefore;
@@ -163,6 +178,10 @@ instrumented with enable_seeding intrinsic calls."));
   cl::opt<bool>
   DebugPrintInstructions("debug-print-instructions", 
                          cl::desc("Print instructions during execution."));
+
+  cl::opt<bool>
+  DebugPrintAAChecks("debug-print-aachecks", 
+                         cl::desc("Print debug information about aachecks."));
 
   cl::opt<bool>
   DebugCheckForImpliedValues("debug-check-for-implied-values");
@@ -415,6 +434,7 @@ Executor::Executor(const InterpreterOptions &opts,
     kmodule(0),
     interpreterHandler(ih),
     searcher(0),
+    aainterface(0),
     externalDispatcher(new ExternalDispatcher()),
     statsTracker(0),
     pathWriter(0),
@@ -469,8 +489,7 @@ const Module *Executor::setModule(llvm::Module *module,
 
   // Initialize the context.
 #if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
-  //TargetData *TD = kmodule->targetData;
-  TD = kmodule->targetData;
+  TargetData *TD = kmodule->targetData;
 #else
   DataLayout *TD = kmodule->targetData;
 #endif
@@ -582,8 +601,12 @@ void Executor::initializeGlobals(ExecutionState &state) {
   if (m->getModuleInlineAsm() != "")
     klee_warning("executable has module level assembly (ignoring)");
 
+  #if LLVM_VERSION_CODE < LLVM_VERSION(3, 3)
   assert(m->lib_begin() == m->lib_end() &&
          "XXX do not support dependent libraries");
+  #endif
+  //assert(m->lib_begin() == m->lib_end() &&
+  //       "XXX do not support dependent libraries");
 
   // represent function globals using the address of the actual llvm function
   // object. given that we use malloc to allocate memory in states this also
@@ -758,7 +781,6 @@ void Executor::branch(ExecutionState &state,
   if (UseConcretePath && ZESTSearchHeuristic == Branches &&
       state.seedingTTL) {
     --state.seedingTTL;
-    //assert(state.seedingTTL != 1 && "In Branch");
     if (0 == state.seedingTTL) {
       // can we be sure the state is not 'new'? If so we could directly disable
       // seeding. For now stay safe
@@ -924,9 +946,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
     if (UseConcretePath && ZESTSearchHeuristic == Branches &&
         !isInternal) {
       assert(current.seedingTTL && "state with TTL=0 cannot be forked both ways");
-      //llvm::errs() << "In Fork: " << current.seedingTTL <<  " UseConcretePath " << UseConcretePath << "\n";
       --current.seedingTTL;
-      //assert(current.seedingTTL != 1 && "In Fork");
       if (0 == current.seedingTTL) {
         // can we be sure the state is not 'new'? If so we could directly disable
         // seeding. For now stay safe
@@ -1387,11 +1407,10 @@ void Executor::executeGetValue(ExecutionState &state,
 
 void Executor::stepInstruction(ExecutionState &state) {
   if (DebugPrintInstructions) {
-    //printFileLine(state, state.pc);
-    //std::cerr << std::setw(10) << stats::instructions << " ";
-    llvm::errs() << *(state.pc->inst) << "\n";
-    //llvm::errs() << (state.seedingTTL);
-    llvm::errs() << "\n";
+    printFileLine(state, state.pc);
+    std::cerr << std::setw(10) << stats::instructions << " ";
+    llvm::errs() << *(state.pc->inst);
+    std::cerr << " \n";
   }
 
   if (statsTracker)
@@ -1566,14 +1585,6 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   KFunction *kf = state.stack.back().kf;
   unsigned entry = kf->basicBlockEntry[dst];
   state.pc = &kf->instructions[entry];
-  if (DebugPrintInstructions) {
-    /*
-    klee_message("DSAND: start: In Executor::transferToBasicBlock");
-    llvm::errs() << *(state.pc->inst);
-    llvm::errs() << "\n";
-    klee_message("DSAND: end");
-    */
-  }
   if (state.pc->inst->getOpcode() == Instruction::PHI) {
     PHINode *first = static_cast<PHINode*>(state.pc->inst);
     state.incomingBBIndex = first->getBasicBlockIndex(src);
@@ -1665,9 +1676,28 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
+
+static void  dumpExpr(const char* msg, ref<Expr> base)
+{
+  std::string str;
+  std::stringstream rso(str);
+  base->print(rso);
+  klee_message("DSAND: %s ", msg );
+  klee_message("DSAND: %s ", rso.str().c_str());
+}
+
+static void dumpMo(const char* msg, const MemoryObject* mo)
+{
+  std::string alloc_site_str;
+  llvm::raw_string_ostream rso_alloc(alloc_site_str);
+  mo->allocSite->print(rso_alloc);
+  klee_message("DSAND: %s ", msg );
+  klee_message("DSAND: mo->allocSite: %s mo->address: %lu mo->size: %u", rso_alloc.str().c_str(), mo->address, mo->size);
+}
+
+
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
-  //llvm::DataLayout* DL = i->getParent()->getParent()->getDataLayout();
 /*
   if (stats::instructions > 452195 ) {
     printFileLine(state, ki);
@@ -1766,7 +1796,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       assert(bi->getCondition() == bi->getOperand(0) &&
              "Wrong operand index!");
       ref<Expr> cond = eval(ki, 0, state).value;
-
       Executor::StatePair branches = fork(state, cond, false);
       
       // NOTE: There is a hidden dependency here, markBranchVisited
@@ -1776,12 +1805,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       if (statsTracker && state.stack.back().kf->trackCoverage)
         statsTracker->markBranchVisited(branches.first, branches.second);
 
-      if (branches.first) {
+      if (branches.first)
         transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
-      }
-      if (branches.second) {
+      if (branches.second)
         transferToBasicBlock(bi->getSuccessor(1), bi->getParent(), *branches.second);
-      }
     }
     break;
   }
@@ -1792,13 +1819,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> ocond;
     if (UseConcretePath)
       ocond = cond;
-    
-    //The intension is to make the switch call using the result of 
-    //function call "____jf_test_abstract_location" as sensitive
-    if (isOnConcretePath(state) && !PatchCheckBefore && si == GlobSI) {
-      addSensitiveInstruction(state);
-      GlobSI  = NULL;
-    }
 
     cond = toUnique(state, cond, false);
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(cond)) {
@@ -1903,32 +1923,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
   case Instruction::Invoke:
   case Instruction::Call: {
-    
     CallSite cs(i);
 
     unsigned numArgs = cs.arg_size();
     Value *fp = cs.getCalledValue();
     Function *f = getTargetFunction(fp, state);
-
-    if (isOnConcretePath(state) && !PatchCheckBefore) {
-      if(f->getNameStr()  == "____jf_test_abstract_location") {
-        for (Value::use_iterator UI = i->use_begin(), UE = i->use_end(); 
-          UI != UE; ++UI) {
-          Instruction* UseI = dyn_cast<Instruction>(*UI);
-          if(isa<SwitchInst>(UseI)) {
-            GlobSI = UseI;
-            if(DebugPrintInstructions) {
-              klee_message("DSAND: Registered SwitchInst \n");
-            }
-          } else if(isa<ICmpInst>(UseI)) {
-            GlobSI = UseI;
-            if(DebugPrintInstructions) {
-              klee_message("DSAND: Registered ICmpInst \n");
-            }
-          }
-        }
-      }
-    }
 
     // Skip debug intrinsics, we can't evaluate their metadata arguments.
     if (f && isDebugIntrinsic(f, kmodule))
@@ -1982,7 +1981,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
 
       /* check for a call to exit and keep the return value. should also check for _exit? */
-      if (f->getNameStr() == "exit" && arguments.size() > 0) {
+      
+      #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+        if (f->getName().str() == "exit" && arguments.size() > 0)
+      #else
+        if (f->getNameStr() == "exit" && arguments.size() > 0)
+      #endif
+      {
         ConstantExpr* returnCode = dyn_cast<ConstantExpr>(arguments[0]);
         if (returnCode) {
           programExitCode = (int32_t)returnCode->getZExtValue();
@@ -2168,14 +2173,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::ICmp: {
     CmpInst *ci = cast<CmpInst>(i);
     ICmpInst *ii = cast<ICmpInst>(ci);
-
-
-    //The intension is to make the ICmpInst call (which is  the result of 
-    //function call "____jf_test_abstract_location") as sensitive
-    if (isOnConcretePath(state) && !PatchCheckBefore && ii == GlobSI) {
-      addSensitiveInstruction(state);
-      GlobSI  = NULL;
-    }
  
     switch(ii->getPredicate()) {
     case ICmpInst::ICMP_EQ: {
@@ -2294,6 +2291,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
   case Instruction::Load: {
     ref<Expr> base = eval(ki, 0, state).value;
+    dumpExpr("Init Base Expr", base);
     executeMemoryOperation(state, false, base, 0, ki);
     break;
   }
@@ -2308,18 +2306,31 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
 
+    dumpExpr("Init Base Expr", base);
+
     for (std::vector< std::pair<unsigned, uint64_t> >::iterator 
            it = kgepi->indices.begin(), ie = kgepi->indices.end(); 
          it != ie; ++it) {
       uint64_t elementSize = it->second;
       ref<Expr> index = eval(ki, it->first, state).value;
+
+      klee_message("DSAND: op index: %u elementSize: %lu", it->first, it->second);
+      dumpExpr("Expr index", index);
+      //state.addConstraint(EqExpr::create(index, ConstantExpr::create(0, Expr::Int64)));                                     
+
       base = AddExpr::create(base,
                              MulExpr::create(Expr::createSExtToPointerWidth(index),
                                              Expr::createPointer(elementSize)));
+      dumpExpr("Incr Base Expr", base);
     }
-    if (kgepi->offset)
+    if (kgepi->offset) {
+      klee_message("DSAND: gptr offset : %lu", kgepi->offset);
       base = AddExpr::create(base,
                              Expr::createPointer(kgepi->offset));
+    }
+
+    dumpExpr("Final Base Expr", base);
+
     bindLocal(ki, state, base);
     break;
   }
@@ -2380,8 +2391,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FAdd operation");
 
-    llvm::APFloat Res(left->getAPValue());
-    Res.add(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+      llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
+      Res.add(APFloat(*fpWidthToSemantics(right->getWidth()),right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #else
+      llvm::APFloat Res(left->getAPValue());
+      Res.add(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #endif
     bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
     break;
   }
@@ -2395,8 +2411,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FSub operation");
 
-    llvm::APFloat Res(left->getAPValue());
-    Res.subtract(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+      llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
+      Res.subtract(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #else
+      llvm::APFloat Res(left->getAPValue());
+      Res.subtract(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+    #endif
     bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
     break;
   }
@@ -2410,8 +2431,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FMul operation");
 
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
+    Res.multiply(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
+#else
     llvm::APFloat Res(left->getAPValue());
     Res.multiply(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+#endif
     bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
     break;
   }
@@ -2425,8 +2451,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FDiv operation");
 
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
+    Res.divide(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
+#else
     llvm::APFloat Res(left->getAPValue());
     Res.divide(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+#endif
     bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
     break;
   }
@@ -2440,8 +2471,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FRem operation");
 
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
+    Res.mod(APFloat(*fpWidthToSemantics(right->getWidth()),right->getAPValue()),
+            APFloat::rmNearestTiesToEven);
+#else
     llvm::APFloat Res(left->getAPValue());
     Res.mod(APFloat(right->getAPValue()), APFloat::rmNearestTiesToEven);
+#endif
     bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
     break;
   }
@@ -2454,7 +2491,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > arg->getWidth())
       return terminateStateOnExecError(state, "Unsupported FPTrunc operation");
 
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Res(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
+#else
     llvm::APFloat Res(arg->getAPValue());
+#endif
     bool losesInfo = false;
     Res.convert(*fpWidthToSemantics(resultType),
                 llvm::APFloat::rmNearestTiesToEven,
@@ -2471,7 +2512,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (!fpWidthToSemantics(arg->getWidth()) || arg->getWidth() > resultType)
       return terminateStateOnExecError(state, "Unsupported FPExt operation");
 
+  #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Res(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
+#else
     llvm::APFloat Res(arg->getAPValue());
+#endif
     bool losesInfo = false;
     Res.convert(*fpWidthToSemantics(resultType),
                 llvm::APFloat::rmNearestTiesToEven,
@@ -2488,7 +2533,12 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > 64)
       return terminateStateOnExecError(state, "Unsupported FPToUI operation");
 
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Arg(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
+#else
     llvm::APFloat Arg(arg->getAPValue());
+#endif
+
     uint64_t value = 0;
     bool isExact = true;
     Arg.convertToInteger(&value, resultType, false,
@@ -2505,7 +2555,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > 64)
       return terminateStateOnExecError(state, "Unsupported FPToSI operation");
 
+    #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    llvm::APFloat Arg(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
+#else
     llvm::APFloat Arg(arg->getAPValue());
+
+#endif
+
     uint64_t value = 0;
     bool isExact = true;
     Arg.convertToInteger(&value, resultType, true,
@@ -2556,8 +2612,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         !fpWidthToSemantics(right->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FCmp operation");
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+    APFloat LHS(*fpWidthToSemantics(left->getWidth()),left->getAPValue());
+    APFloat RHS(*fpWidthToSemantics(right->getWidth()),right->getAPValue());
+#else
     APFloat LHS(left->getAPValue());
     APFloat RHS(right->getAPValue());
+#endif
     APFloat::cmpResult CmpRes = LHS.compare(RHS);
 
     bool Result = false;
@@ -2865,7 +2926,6 @@ void Executor::run(ExecutionState &initialState) {
           updateStates(&state);
           continue;
         }
-
         if (SymbexEvery && stats::instructions % SymbexEvery == 0 &&
             seedMap.size() == 1)
           enableSeeding(state, SymbexFor);
@@ -2874,7 +2934,6 @@ void Executor::run(ExecutionState &initialState) {
           if (!(--state.seedingTTL)) {
             disableSeeding(state);
           }
-          //assert(state.seedingTTL != 1 && "In Concrete");
         }
       }
 
@@ -2911,7 +2970,6 @@ void Executor::run(ExecutionState &initialState) {
            it = states.begin(), ie = states.end();
          it != ie; ++it) {
       (*it)->weight = 1.;
-      //llvm::errs() << (*it)->pc->inst;
     }
 
     if (OnlySeed)
@@ -2920,7 +2978,7 @@ void Executor::run(ExecutionState &initialState) {
 
  search:
   if(DebugPrintInstructions) {
-    klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
+    klee_message("\n\nSearch Begin: states size %d", (int)states.size());
   }
   searcher = constructUserSearcher(*this);
   // klee timers have 0.1s resolution, unsuitable for inst execution time
@@ -2928,31 +2986,13 @@ void Executor::run(ExecutionState &initialState) {
   searcher->update(0, states, std::set<ExecutionState*>());
 
   while (!states.empty() && !haltExecution) {
-    if(DebugPrintInstructions) {
-      /*
-      klee_message("\n\nDSAND: search begin: states size %d", (int)states.size());
-      for (std::set<ExecutionState*>::iterator
-             it = states.begin(), ie = states.end();
-           it != ie; ++it) {
-        ExecutionState &state = **it;
-        llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
-      }
-      */
-    }
-
     ExecutionState &state = searcher->selectState();
-
-    if(DebugPrintInstructions) {
-      //llvm::errs() << "state: "<< *(state.pc->inst) << "\n";
-      //klee_message("DSAND: After Selection: End");
-    }
-    
     if (state.markForDeletion || (LESTMaxBranchTime > 0 && state.branchTime && *state.branchTime > LESTMaxBranchTime)) {
+      klee_message("Search Begin: Disable Seeding");
       disableSeeding(state);
       updateStates(&state);
       continue;
     }
-    
     KInstruction *ki = state.pc;
     currentInstructionInfo = ki->info;
     stateStartTime = util::getWallTime();
@@ -2974,15 +3014,17 @@ void Executor::run(ExecutionState &initialState) {
       if (!(--state.seedingTTL)) {
         disableSeeding(state);
       }
-      //assert(state.seedingTTL != 1 && "In Search");
     }
     if (MaxMemory) {
       if ((stats::instructions & 0xFFFF) == 0) {
         // We need to avoid calling GetMallocUsage() often because it
         // is O(elts on freelist). This is really bad since we start
         // to pummel the freelist once we hit the memory cap.
+        #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 4)
+        unsigned mbs = util::GetTotalMallocUsage() >> 20;
+        #else
         unsigned mbs = sys::Process::GetTotalMemoryUsage() >> 20;
-        
+        #endif
         if (mbs > MaxMemory) {
           if (mbs > MaxMemory + 100) {
             // just guess at how many to kill
@@ -3195,6 +3237,7 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
+
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
     return;
@@ -3540,11 +3583,8 @@ void Executor::resolveExact(ExecutionState &state,
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
   if(DebugPrintInstructions) {
-    klee_message("DSAND: in  addSensitiveInstruction");
-    llvm::errs() << *(state.prevPC->inst);
-    llvm::errs() << "\n";
+    llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
   }
-
   if (Concolic == stage)
     return;
   if (ZESTSearchHeuristic == Instructions) {
@@ -3567,9 +3607,11 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                                       ref<Expr> address,
                                       ref<Expr> value /* undef if read */,
                                       KInstruction *target /* undef if write */) {
+
   Expr::Width type = (isWrite ? value->getWidth() : 
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
+  klee_message("size: %u", bytes);
 
   //XXX need to take care of this in ZEST
   if (SimplifySymIndices) {
@@ -3577,6 +3619,150 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       address = state.constraints.simplifyExpr(address);
     if (isWrite && !isa<ConstantExpr>(value))
       value = state.constraints.simplifyExpr(value);
+  }
+
+  // If this is a read, perform an alias/pointer check
+  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+    // Set of alias analysis abstract locations that may be pointed
+    // by the address pointer in the current state
+    aachecker::AbstractLocSet foundTargets;
+
+    // Collect memory objects that may be pointed by the address pointer
+    // in this state
+    ResolutionList rl;  
+    solver->setTimeout(stpTimeout);
+    klee_message("Before Initial Resolve");
+    if (state.addressSpace.resolve(state, solver, address, rl,
+                                   0, stpTimeout, false)) {
+        terminateStateEarly(state, "Query timed out (resolve).");
+    }
+    klee_message("After Initial Resolve");
+    solver->setTimeout(0);
+
+    if (DebugPrintAAChecks) {
+      std::string address_str;
+      std::stringstream rso_addr(address_str);
+      address->print(rso_addr);
+
+      unsigned size = rl.size();
+      klee_message("AACHECKS: Found target(s)[%u] of the symbolic address %s:",size, rso_addr.str().c_str());
+    }
+
+    // Add abstract locations corresponding to found memory objects to the
+    // foundTargets set
+    for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
+      const MemoryObject *mo = i->first;
+
+      if (DebugPrintAAChecks) {
+        std::string alloc_site_str;
+        llvm::raw_string_ostream rso_alloc(alloc_site_str);
+        if (const Function *f = dyn_cast<Function>(mo->allocSite)) {
+          klee_message("AACHECKS:Function %s", f->getName().str().c_str());
+        }
+        else {
+          mo->allocSite->print(rso_alloc);
+          klee_message("AACHECKS2:%s", rso_alloc.str().c_str());
+        }
+      }
+
+      // If the allocation site of the memory object is a vararg function
+      // call, meaning that the object represents a vararg list, we omit
+      // the check since such object is not visible to pointer analysis
+      // algorithms.
+      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
+        if (Function *cf = ci->getCalledFunction()) {
+          if (cf->isVarArg()) {
+            if (DebugPrintAAChecks) {
+              klee_message("AACHECKS: Skipping adding this to the"
+                           " found targets..");
+            }
+            continue;
+          }
+        }
+      }
+
+      // If the allocation site of the memory object is the first instruction
+      // of main, then the memory object is the array pointed by argv.
+      // Our analysis represents that allocation site with the argv pointer.
+      // In klee, the first instruction of main is a call to
+      // klee_mark_args_symbolic
+      bool isArgv = false;
+      Value *argvPtr = 0;
+      if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
+        Function *mainFn = kmodule->module->getFunction("main");
+        assert(mainFn);
+        assert(mainFn->arg_size() >= 2);
+        Function::arg_iterator argI = mainFn->arg_begin();
+        argvPtr = (++argI);
+        assert(argvPtr->getType()->isPointerTy() &&
+               argvPtr->getName().equals("argv"));
+        isArgv = ci == mainFn->begin()->begin();
+      }
+
+      const aachecker::AbstractLocSet &als =
+        aainterface->getAllocatableLocs(isArgv ? argvPtr : mo->allocSite);
+      for (aachecker::AbstractLocSet::iterator alsI = als.begin(),
+           alsIE = als.end(); alsI != alsIE; ++alsI) {
+        const aachecker::AbstractLoc *al = *alsI;
+        foundTargets.insert(al);
+
+        if (DebugPrintAAChecks) {
+          klee_message("AACHECKS:  {%p}", al);
+        }
+      }
+    }
+
+    // Points-to set of the base address according to the pointer analysis
+    const Value *baseValue =
+      dyn_cast<LoadInst>(target->inst)->getPointerOperand();
+    const aachecker::AbstractLocSet &pointsToSet =
+      *(aainterface->getAbstractLocSetForValue(baseValue));
+
+    if (DebugPrintAAChecks) {
+
+      std::string base_str;
+      llvm::raw_string_ostream rso_base(base_str);
+      baseValue->print(rso_base);
+
+      klee_message("AACHECKS: Points to set of base value %s"
+                   " (according to pointer anlysis):",
+                   rso_base.str().c_str());
+
+      for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
+           ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
+        const aachecker::AbstractLoc *pts = *ptsI;
+        const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
+        std::string pts_str;
+        llvm::raw_string_ostream rso_pts(pts_str);
+        if (const Function *f = dyn_cast<Function>(ptsAllocSite)) {
+          klee_message("AACHECKS:Function %s {%p}",
+                       f->getName().str().c_str(), pts);
+        }
+        else {
+          ptsAllocSite->print(rso_pts);
+          klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
+        }
+      }
+    }
+
+    // Assert that pointsToSet is a superset of foundTargets
+    //klee_message("dsand: iter1 size %d\n", foundTargets.size());
+    //klee_message("dsand: iter2 size %d\n", pointsToSet.size());
+    for (aachecker::AbstractLocSet::iterator tgtI = foundTargets.begin(),
+         tgtIE = foundTargets.end(); tgtI != tgtIE; ++tgtI) {
+
+      //const aachecker::AbstractLoc *pts = *tgtI;
+      //const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
+      //std::string pts_str;
+      //llvm::raw_string_ostream rso_pts(pts_str);
+      //ptsAllocSite->print(rso_pts);
+      //klee_message("Analysing:  %s {%p}", rso_pts.str().c_str(), pts);
+
+      if (pointsToSet.find(*tgtI) == pointsToSet.end()) {
+        terminateStateOnError(state, "failed alias/pointer analysis check",
+                              "aachecks");
+      }
+    }
   }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
@@ -3587,7 +3773,9 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   bool success;
   solver->setTimeout(stpTimeout);
 
+  //klee_message("sdasgup3: before resolveOne2\n");
   if (!state.addressSpace.resolveOne(state, solver, address, op, success)) {
+    //klee_message("sdasgup3: here11");
     address = toConstant(state, address, "resolveOne failure");
     success = state.addressSpace.resolveOne(cast<ConstantExpr>(address), op);
   }
@@ -3595,29 +3783,29 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   if (success) {
     const MemoryObject *mo = op.first;
 
-   // bounds check
+    dumpMo("after resolveOne2 inside success", mo);
+
+
+    // bounds check
     ref<Expr> offset = mo->getOffsetExpr(address);
     ref<Expr> boundsCheck = mo->getBoundsCheckOffset(offset, bytes);
-    
+
+    dumpExpr("offset", offset);
+    dumpExpr("boundsCheck", boundsCheck);
+
+
     if (isOnConcretePath(state) && !PatchCheckBefore) {
       // remember the instruction if it is sensitive
-      if (EveryAccessIsSensitive  ||
+      if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+        addSensitiveInstruction(state);
+      }
+      if (EveryAccessIsSensitive ||
           state.lastInstructionGEP ||
           !dyn_cast<ConstantExpr>(boundsCheck)) {
-            //addSensitiveInstruction(state);
+            addSensitiveInstruction(state);
       }
-      /*
-      else if(target){
-        Instruction *I = target->inst; 
-        const Type* Ty = I->getType();
-        const IntegerType *ITy = TD->getIntPtrType(Ty->getContext()) ;
-        if(Ty->isPointerTy() || Ty == ITy) {
-          addSensitiveInstruction(state);  
-          klee_message("Add load of pointer type as sensitive instruction");
-        }
-      }
-      */
     }
+
     bool inBounds;
     solver->setTimeout(stpTimeout);
     if (true == UseConcretePath) {
@@ -3626,6 +3814,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     bool useSeeds = ZestSkipChecks || (PatchCheckBefore && !state.inPatch);
     bool success = solver->mustBeTrue(state, boundsCheck,
                                       inBounds, useSeeds);
+    klee_message("sdasgup3: inside success success:%d inBounds%d", success, inBounds);
     if (true == UseConcretePath) {
       doLog = 0;
     }
@@ -3636,7 +3825,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       return;
     }
 
-    if (inBounds) {
+    if (1) {
+      //klee_message("sdasgup3: after resolveOne2 inside success nside inbounds \n");
       const ObjectState *os = op.second;
       if (MaxSymArraySize && mo->size >= MaxSymArraySize) {
         address = toConstant(state, address, "max-sym-array-size");
@@ -3667,6 +3857,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
 
   ResolutionList rl;  
   solver->setTimeout(stpTimeout);
+  klee_message("error path: before resolve\n");
   bool incomplete = state.addressSpace.resolve(state, solver, address, rl,
                                                0, stpTimeout, false);
   solver->setTimeout(0);
@@ -3674,7 +3865,9 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   // XXX there is some query wasteage here. who cares?
   ExecutionState *unbound = &state;
 
+  //klee_message("sdasgup3: error path: after resolve\n");
   for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
+    klee_message("DSAND: error path: inside res list\n");
     const MemoryObject *mo = i->first;
     const ObjectState *os = i->second;
     ref<Expr> inBounds = mo->getBoundsCheckPointer(address, bytes);
@@ -3865,7 +4058,7 @@ int Executor::runFunctionAsMain(Function *f,
   // null that uclibc seems to expect, possibly the ELF header?
 
   int envc;
-  for (envc=0; envp[envc]; ++envc) ;
+  for (envc=0; envp[envc]; ++envc);
 
   unsigned NumPtrBytes = Context::get().getPointerWidth() / 8;
   KFunction *kf = kmodule->functionMap[f];
@@ -4025,8 +4218,8 @@ bool Executor::getSymbolicSolution(const ExecutionState &state,
       }
       std::vector< ref<Expr> >::const_iterator pi = 
         mo->cexPreferences.begin(), pie = mo->cexPreferences.end();
-      //int i = 0; dsand
-      for (; pi != pie; ++pi){ //, ++i) { dsand
+      //int i = 0;
+      for (; pi != pie; ++pi) { //, ++i) {
         //if (0 == i % 10)
           //std::cerr << i << std::endl;
         bool mustBeTrue;
@@ -4111,9 +4304,6 @@ void Executor::enableSeeding(ExecutionState& state, unsigned TTL, int interleave
 }
 
 void Executor::disableSeeding(ExecutionState& state) {
-  if(DebugPrintInstructions) {
-    klee_message("DSAND: Seeding Disabled");
-  }
   state.symbexEnabled = false;
   state.markForDeletion = false;
   state.nextForkInterleaved = false;
