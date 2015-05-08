@@ -3704,22 +3704,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = state.constraints.simplifyExpr(value);
   }
 
-  // If this is a read, perform an alias/pointer check
-  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
-
-    // Collect memory objects that may be pointed by the address pointer
-    // in this state
-    ResolutionList rl;  
-    solver->setTimeout(stpTimeout);
-    if (state.addressSpace.resolve(state, solver, address, rl,
-                                   0, stpTimeout, false)) {
-        terminateStateEarly(state, "Query timed out (resolve).");
-    }
-    solver->setTimeout(0);
-
-    pointerChecker(state, address, target, rl);
-
-  }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
   // expr for bounds checking
@@ -3735,6 +3719,14 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   }
   solver->setTimeout(0);
   if (success) {
+
+    // If this is a read, perform an alias/pointer check
+    if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+      ResolutionList rl;
+      rl.push_back(op);
+      pointerChecker(state, address, target, rl);
+    }
+
     const MemoryObject *mo = op.first;
 
    // bounds check
@@ -3771,7 +3763,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       return;
     }
 
-    if (inBounds) {
+    if (inBounds || (interpreterOpts.PerformAliasAnalysisChecks && !isWrite)) {
       const ObjectState *os = op.second;
       if (MaxSymArraySize && mo->size >= MaxSymArraySize) {
         address = toConstant(state, address, "max-sym-array-size");
