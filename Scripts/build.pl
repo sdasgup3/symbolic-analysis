@@ -6,8 +6,7 @@ use warnings;
 
 #################### PATHS #################
 my $SCRIPTDIR       = "/home/sdasgup3/SymbolicAnalysis/Scripts/";
-my $llvm_bin_3_4    = "/home/sdasgup3/llvm/llvm-llvmpa/llvm-build/Release+Asserts/bin/";
-my $llvmpalib       = "/home/sdasgup3/llvmpa/llvmpa-build/Release+Asserts/lib/";
+my $llvmpalib       = "/home/sdasgup3/SymbolicAnalysis/zesti/Release+Asserts/lib//";
 
 ##############################################
 
@@ -21,8 +20,8 @@ my $watch = "";
 my $modifiedll = "";
 my $withoutcheker = "";
 my @progargs = "";
-my $zest = "";
-my $offset = "1";
+my $zest = "1";
+my $offset = "3";
 my $klee_dir = "";
 my $llvm_dir = "";
 
@@ -43,22 +42,37 @@ GetOptions ("wc"        => \$withoutcheker,
  or die("Error in command line arguments\n");
 
 
-if("" eq $klee_dir ||  (""  eq $llvm_dir) || "" eq $test) {
+if("" eq $test) {
   print "Specify -test [-zest offset=N] [-wc -mdll] -klee_dir -llvm_dir \n";
   print "Usage: ~/SymbolicAnalysis/Scripts/build.pl -wc -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/ -test ?\n";
-  print "Usage: ~/SymbolicAnalysis/Scripts/build.pl -zest -offset 3 -klee_dir ~/SymbolicAnalysis/zesti/ -llvm_dir ~/llvm/llvm-3.4.2/llvm-build/ -test ?\n";
   exit(1);
 }
+
+if("" eq $klee_dir) {
+  $klee_dir = "~/SymbolicAnalysis/zesti/";
+  print "Using klee_dir as $klee_dir\n";
+}
+if("" eq $llvm_dir) {
+  $llvm_dir = "~/llvm/llvm-3.4.2/llvm-build/";
+  print "Using llvm_dir as $llvm_dir\n";
+}
+
+print "Using offset as $offset" . "\n";
+print "Using -zest as $zest" . "\n";
 
 my $make        = "make -f $SCRIPTDIR/Makefile"; 
 
 ###  LLVM Args
-my $clang       = "$llvm_dir/Release+Asserts/bin/clang";
-my $llvmdis     = "$llvm_dir/Release+Asserts/bin/llvm-dis";
-my $llvmas      = "$llvm_dir/Release+Asserts/bin/llvm-as";
-my $llvmld      = "$llvm_dir/Release+Asserts/bin/llvm-ld";
+my $llvm_bin    = "$llvm_dir/Release+Asserts/bin/";
+my $clang       = "$llvm_bin/clang";
+my $llvmdis     = "$llvm_bin/llvm-dis";
+my $llvmas      = "$llvm_bin/llvm-as";
+my $llvmld      = "$llvm_bin/llvm-ld";
+my $palib       = "$klee_dir/lib/";
+my $painclude   = "$klee_dir/include/";
+
 if(!(-e "$llvmld")) { # We llvm-ld not there, so search for llvm-link
-  $llvmld = "$llvm_dir/Release+Asserts/bin/llvm-link";
+  $llvmld = "$llvm_bin/llvm-link";
 } else {
   $llvmld = $llvmld  . " -disable-opt "
 }
@@ -81,40 +95,29 @@ if("" eq $maxt) {
 
 if($zest eq "") {
 
-# $kleeargs  = "-write-test-info";
-# $kleeargs  = "--libc=uclibc  --allow-external-sym-calls";
-# $kleeargs  = "--emit-all-errors";
-#$kleeargs = "--libc=uclibc --allow-external-sym-calls  --max-time=$maxtime";
   $kleeargs = 
         " --simplify-sym-indices --write-cvcs --write-cov --output-module"
       . " --max-memory=1000 --disable-inlining "
-#    . " --optimize"
       . " --use-forked-solver" 
-#    . " --use-cex-cache --libc=uclibc --posix-runtime"
       . " --libc=uclibc --allow-external-sym-calls --only-output-states-covering-new" 
-#    . " --environ=$SCRIPTDIR/test.env --run-in=/tmp/sandbox" 
-#  . " --use-query-log=all:pc"
       . " --use-query-log=solver:pc"
       . " --max-sym-array-size=4096 --max-instruction-time=120 --max-time=$maxtime" 
       . " --watchdog --max-memory-inhibit=false --max-static-fork-pct=1" 
       . " --max-static-solve-pct=1 --max-static-cpfork-pct=1 --switch-type=internal" 
       . " --randomize-fork --search=random-path --search=nurs:covnew" 
       . " --use-batching-search --batch-instructions=10000"; 
-#./paste.bc --sym-args 0 1 10 --sym-args 0 2 2 --sym-files 1 8 --sym-stdout "; 
 } else {
-#$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
-#$kleeargs = " --zest --zest-depth-offset=$offset     -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
-  $kleeargs = " --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
-#-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
+#$kleeargs = " --zest  -aachecks  --disable-opt --debug-print-aachecks -debug-print-instructions   --zest-depth-offset=$offset       --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+  $kleeargs = " --zest            --disable-opt                        -debug-print-instructions   --zest-depth-offset=$offset       --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
 }
 
 
 if(defined($test)) {
 
-  if($withoutcheker ne "") {
+#  if($withoutcheker ne "") {
     execute("$make clean");
-    execute("$clang -O3 -emit-llvm -I $kleeincl -I ./ -c $test.c -o $test.a.out.bc");
-    execute("$llvmdis $test.a.out.bc -o a.out.ll");
+    execute("$make $test LLVM_BIN=$llvm_bin   KLEEINCLUDE=$kleeincl");
+    execute("cp $test.bc $test.a.out.bc");
 
     if("" eq $genexec) {
       &runKlee;
@@ -123,27 +126,24 @@ if(defined($test)) {
     execute("echo");
     execute("echo");
     exit(0);
-  }
+#  }
 
 
-  if($modifiedll eq "") {
-    execute("$make clean");
-    execute("$make $test LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib KLEEINCLUDE=$kleeincl");
-    execute("echo");
-    execute("$make $test-kleecheck LLVM_BIN=$llvm_bin_3_4 LLVMPALIB=$llvmpalib");
-    execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9][0-9]*//' >  temp ");
-    execute("mv temp $test-kleecheck.ll") ;
-    execute("echo");
-    execute("echo");
-  }
-  execute("$clang -emit-llvm -c $SCRIPTDIR/jf_checker_map.cpp -I $SCRIPTDIR -o jf_checker_map.bc");
-  execute("$llvmas < $test-kleecheck.ll  > a.bc");
-  execute("$llvmld a.bc  jf_checker_map.bc -o a.out.bc");
-  execute("$llvmdis < a.out.bc  > a.out.ll");
-  execute("cp a.out.bc $test.a.out.bc");
-  if("" eq $genexec) {
-    &runKlee;
-  }
+#  if($modifiedll eq "") {
+#    execute("$make clean");
+#    execute("$make $test LLVM_BIN=$llvm_bin   KLEEINCLUDE=$kleeincl");
+#    execute("echo");
+#    execute("$make $test-kleecheck LLVM_BIN=$llvm_bin LLVMPALIB=$llvmpalib KLEEINCLUDE=$kleeincl JFCHECKERMAP=$palib/jf-rt/ JFINCLUDE=$painclude/");
+#    execute("cp $test-kleecheck.bc $test.a.out.bc");
+#    execute("echo");
+#    execute("echo");
+#  } else {
+#    execute("$llvmas < $test-kleecheck.ll  > $test-kleecheck.bc");
+#    execute("cp $test-kleecheck.bc $test.a.out.bc");
+#  }
+#  if("" eq $genexec) {
+#    &runKlee;
+#  }
   execute("echo");
   execute("echo");
   exit(0);
@@ -186,3 +186,34 @@ if("" ne $reuse) {
   }
   exit(0);
 }
+
+#if($zest eq "") {
+#
+## $kleeargs  = "-write-test-info";
+## $kleeargs  = "--libc=uclibc  --allow-external-sym-calls";
+## $kleeargs  = "--emit-all-errors";
+##$kleeargs = "--libc=uclibc --allow-external-sym-calls  --max-time=$maxtime";
+#  $kleeargs = 
+#        " --simplify-sym-indices --write-cvcs --write-cov --output-module"
+#      . " --max-memory=1000 --disable-inlining "
+##    . " --optimize"
+#      . " --use-forked-solver" 
+##    . " --use-cex-cache --libc=uclibc --posix-runtime"
+#      . " --libc=uclibc --allow-external-sym-calls --only-output-states-covering-new" 
+##    . " --environ=$SCRIPTDIR/test.env --run-in=/tmp/sandbox" 
+##  . " --use-query-log=all:pc"
+#      . " --use-query-log=solver:pc"
+#      . " --max-sym-array-size=4096 --max-instruction-time=120 --max-time=$maxtime" 
+#      . " --watchdog --max-memory-inhibit=false --max-static-fork-pct=1" 
+#      . " --max-static-solve-pct=1 --max-static-cpfork-pct=1 --switch-type=internal" 
+#      . " --randomize-fork --search=random-path --search=nurs:covnew" 
+#      . " --use-batching-search --batch-instructions=10000"; 
+##./paste.bc --sym-args 0 1 10 --sym-args 0 2 2 --sym-files 1 8 --sym-stdout "; 
+#} else {
+##$kleeargs = " --zest --zest-depth-offset=$offset -debug-print-instructions  --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br "; 
+##$kleeargs = " --zest --zest-depth-offset=$offset     -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+#  $kleeargs = " --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false"; 
+##-watchdog --max-time=30 --optimize --max-cex-size=0 --zest-continue-after-error=true --output-source=false --no-std-out --output-level=error --use-cex-cache=false ---dump-states-on-halt=false -use-forked-stp --max-stp-time=10 --posix-runtime --libc=uclibc $CU/src/TEMPLATE-EXE.bc ${1+"$@"}    
+#}
+    #execute("cat $test-kleecheck.ll | sed 's/target datalayout.*//' | sed 's/\!llvm.ident =.*//' | sed 's/\!0 = metadata.*//' | sed 's/^attributes \#[0-9]*.*//' | sed 's/\#[0-9][0-9]*//' >  temp ");
+    #execute("mv temp $test-kleecheck.ll") ;

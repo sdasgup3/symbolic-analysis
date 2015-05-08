@@ -1,4 +1,5 @@
-~/llvm/llvm-2.9/Release+Asserts/bin/clang -L /home/sdasgup3/klee/klee/Release+Asserts/lib a.out.bc -lkleeRuntest
+#~/llvm/llvm-2.9/Release+Asserts/bin/clang -L /home/sdasgup3/klee/klee/Release+Asserts/lib a.out.bc -lkleeRuntest
+~/llvm/llvm-3.4.2/llvm-build/Release+Asserts/bin/clang -L /home/sdasgup3/klee/klee/Release+Asserts/lib a.out.bc -lkleeRuntest
 foreach file (`find -L klee-last -name "*.ktest"`) 
   setenv KTEST_FILE $file
   ./a.out ; echo $status 
