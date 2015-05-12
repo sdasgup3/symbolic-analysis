@@ -74,6 +74,8 @@ or
 When building zesti add these options to configure to help it find llvmpa:
 --with-llvmpasrc=/path/to/llvmpa/src/tree
 --with-llvmpaobj=/path/to/llvmpa/obj/tree
+Ex:
+./configure --with-llvmsrc=/home/sdasgup3/llvm/llvm-3.4.2/llvm-src/ --with-llvmobj=/home/sdasgup3/llvm/llvm-3.4.2/llvm-build/ --with-stp=/home/sdasgup3/zesti_utils//stp-r940/install/ --with-uclibc=/home/sdasgup3/zesti_utils/klee-uclibc/ --with-llvmpasrc=/home/sdasgup3/llvmpa/ --with-llvmpaobj=/home/sdasgup3/llvmpa-build/ --enable-posix-runtime
 
 /* In case stuck in problems
 sudo ln -s /usr/include/x86_64-linux-gnu/asm/ /usr/include/asm
