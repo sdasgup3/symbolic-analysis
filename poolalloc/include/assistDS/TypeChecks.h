@@ -20,8 +20,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/CallSite.h"
-#include "llvm/IR/Dominators.h"
+#include "llvm/Support/CallSite.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 #include <map>
@@ -100,8 +100,8 @@ public:
   virtual void print(raw_ostream &OS, const Module *M) const;
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTree>();
+    AU.addRequired<LoopInfo>();
     AU.addRequired<AddressTakenAnalysis>();
   }
 

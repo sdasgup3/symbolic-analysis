@@ -294,11 +294,11 @@ void DSGraph::writeGraphToFile(llvm::raw_ostream &O,
   std::string Filename = GraphName + ".dot";
   O << "Writing '" << Filename << "'...";
   if (!DontPrintGraphs) {
-    std::error_code Error;
-    llvm::raw_fd_ostream F(Filename, Error, sys::fs::F_Text);
+    std::string ErrorInfo;
+    llvm::raw_fd_ostream F(Filename.c_str(), ErrorInfo, llvm::sys::fs::F_None);
 
-    if (Error) {
-      O << "  error opening file for writing! " << Error.message() << "\n";
+    if (!ErrorInfo.empty()) {
+      O << "  error opening file for writing! " << ErrorInfo << "\n";
       return;
     }
 

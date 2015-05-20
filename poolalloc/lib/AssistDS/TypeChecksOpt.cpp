@@ -19,7 +19,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
@@ -137,7 +137,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
                                      NULL);
   MallocFunc = M.getFunction("malloc");
 
-  for(Value::user_iterator User = trackGlobal->user_begin(); User != trackGlobal->user_end(); ++User) {
+  for(Value::use_iterator User = trackGlobal->use_begin(); User != trackGlobal->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
     if(TS->isTypeSafe(CI->getOperand(1)->stripPointerCasts(), CI->getParent()->getParent())) {
@@ -150,7 +150,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
     }
   }
 
-  for(Value::user_iterator User = checkTypeInst->user_begin(); User != checkTypeInst->user_end(); ++User) {
+  for(Value::use_iterator User = checkTypeInst->use_begin(); User != checkTypeInst->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
 
@@ -159,7 +159,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
     }
   }
 
-  for(Value::user_iterator User = trackStoreInst->user_begin(); User != trackStoreInst->user_end(); ++User) {
+  for(Value::use_iterator User = trackStoreInst->use_begin(); User != trackStoreInst->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
 
@@ -170,7 +170,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
 
   // for alloca's if they are type known
   // assume initialized with TOP
-  for(Value::user_iterator User = trackUnInitInst->user_begin(); User != trackUnInitInst->user_end(); ) {
+  for(Value::use_iterator User = trackUnInitInst->use_begin(); User != trackUnInitInst->use_end(); ) {
     CallInst *CI = dyn_cast<CallInst>(*(User++));
     assert(CI);
 
@@ -191,7 +191,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
   }
 
   if(MallocFunc) {
-    for(Value::user_iterator User = MallocFunc->user_begin(); User != MallocFunc->user_end(); User ++) {
+    for(Value::use_iterator User = MallocFunc->use_begin(); User != MallocFunc->use_end(); User ++) {
       CallInst *CI = dyn_cast<CallInst>(*User);
       if(!CI)
         continue;
@@ -213,7 +213,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
   // also do for mallocs/calloc/other allocators???
   // other allocators??
 
-  for(Value::user_iterator User = copyTypeInfo->user_begin(); User != copyTypeInfo->user_end(); ++User) {
+  for(Value::use_iterator User = copyTypeInfo->use_begin(); User != copyTypeInfo->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
 
@@ -226,7 +226,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
       toDelete.push_back(CI);
     }
   }
-  for(Value::user_iterator User = setTypeInfo->user_begin(); User != setTypeInfo->user_end(); ++User) {
+  for(Value::use_iterator User = setTypeInfo->use_begin(); User != setTypeInfo->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
 
@@ -240,7 +240,7 @@ bool TypeChecksOpt::runOnModule(Module &M) {
     }
   }
 
-  for(Value::user_iterator User = getTypeTag->user_begin(); User != getTypeTag->user_end(); ++User) {
+  for(Value::use_iterator User = getTypeTag->use_begin(); User != getTypeTag->use_end(); ++User) {
     CallInst *CI = dyn_cast<CallInst>(*User);
     assert(CI);
     if(TS->isTypeSafe(CI->getOperand(1)->stripPointerCasts(), CI->getParent()->getParent())) {

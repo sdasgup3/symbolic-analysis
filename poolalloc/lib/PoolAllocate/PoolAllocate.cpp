@@ -26,12 +26,12 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/CFG.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
@@ -346,8 +346,8 @@ bool PoolAllocate::runOnModule(Module &M) {
     //  o) the called function is the function that we're replacing
     //
     std::vector<User *> toReplace;
-    for (Function::user_iterator User = F->user_begin();
-                                User != F->user_end();
+    for (Function::use_iterator User = F->use_begin();
+                                User != F->use_end();
                                 ++User) {
       if (CallInst * CI = dyn_cast<CallInst>(*User)) {
         if (CI->getCalledFunction() == F)
@@ -512,7 +512,7 @@ static void getCallsOf(Constant *C, std::vector<CallInst*> &Calls) {
       assert (0 && "Constant is not a Function of ConstantExpr!"); 
   }
   Calls.clear();
-  for (Value::user_iterator UI = F->user_begin(), E = F->user_end(); UI != E; ++UI)
+  for (Value::use_iterator UI = F->use_begin(), E = F->use_end(); UI != E; ++UI)
     Calls.push_back(cast<CallInst>(*UI));
 }
 
@@ -526,7 +526,7 @@ static void getCallsOf(Constant *C, std::vector<CallInst*> &Calls) {
 //
 static void
 OptimizePointerNotNull(Value *V, LLVMContext * Context) {
-  for (Value::user_iterator I = V->user_begin(), E = V->user_end(); I != E; ++I) {
+  for (Value::use_iterator I = V->use_begin(), E = V->use_end(); I != E; ++I) {
     Instruction *User = cast<Instruction>(*I);
     if (isa<ICmpInst>(User) && cast<ICmpInst>(User)->isEquality()) {
       ICmpInst * ICI = cast<ICmpInst>(User);
@@ -1315,7 +1315,7 @@ static void DeleteIfIsPoolFree(Instruction *I, AllocaInst *PD,
 
 void PoolAllocate::CalculateLivePoolFreeBlocks(std::set<BasicBlock*>&LiveBlocks,
                                                Value *PD) {
-  for (Value::user_iterator I = PD->user_begin(), E = PD->user_end(); I != E; ++I){
+  for (Value::use_iterator I = PD->use_begin(), E = PD->use_end(); I != E; ++I){
     //
     // The only users of the pool should be call, invoke, and cast
     // instructions.  We know that poolfree() and pooldestroy() do not need to

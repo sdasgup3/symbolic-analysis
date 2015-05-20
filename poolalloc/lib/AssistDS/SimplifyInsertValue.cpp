@@ -18,7 +18,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/PatternMatch.h"
 
 #include <set>
 #include <map>
@@ -62,7 +62,7 @@ bool SimplifyIV::runOnModule(Module& M) {
           if(!IV->hasOneUse())
             continue;
           // Check that its only use is a StoreInst
-          StoreInst *SI = dyn_cast<StoreInst>(*(IV->user_begin()));
+          StoreInst *SI = dyn_cast<StoreInst>(*(IV->use_begin()));
           if(!SI)
             continue;
           // Check that it is the stored value

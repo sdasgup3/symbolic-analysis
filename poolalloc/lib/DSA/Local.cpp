@@ -21,6 +21,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/InlineAsm.h"
@@ -31,8 +32,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
-#include "llvm/IR/InstVisitor.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
+#include "llvm/InstVisitor.h"
 #include "llvm/Support/Timer.h"
 
 #include <fstream>
@@ -402,7 +403,7 @@ void GraphBuilder::visitLoadInst(LoadInst &LI) {
   // check that it is the inserted value
   if(TypeInferenceOptimize)
     if(LI.hasOneUse())
-      if(StoreInst *SI = dyn_cast<StoreInst>(*(LI.user_begin())))
+      if(StoreInst *SI = dyn_cast<StoreInst>(*(LI.use_begin())))
         if(SI->getOperand(0) == &LI) {
         ++NumIgnoredInst;
         return;
@@ -562,7 +563,7 @@ void GraphBuilder::visitVAArgInst(VAArgInst &I) {
 void GraphBuilder::visitIntToPtrInst(IntToPtrInst &I) {
   DSNode *N = createNode();
   if(I.hasOneUse()) {
-    if(isa<ICmpInst>(*(I.user_begin()))) {
+    if(isa<ICmpInst>(*(I.use_begin()))) {
       NumBoringIntToPtr++;
       return;
     }
@@ -576,13 +577,13 @@ void GraphBuilder::visitIntToPtrInst(IntToPtrInst &I) {
 void GraphBuilder::visitPtrToIntInst(PtrToIntInst& I) {
   DSNode* N = getValueDest(I.getOperand(0)).getNode();
   if(I.hasOneUse()) {
-    if(isa<ICmpInst>(*(I.user_begin()))) {
+    if(isa<ICmpInst>(*(I.use_begin()))) {
       NumBoringIntToPtr++;
       return;
     }
   }
   if(I.hasOneUse()) {
-    Value *V = dyn_cast<Value>(*(I.user_begin()));
+    Value *V = dyn_cast<Value>(*(I.use_begin()));
     DenseSet<Value *> Seen;
     while(V && V->hasOneUse() &&
           Seen.insert(V).second) {
@@ -592,7 +593,7 @@ void GraphBuilder::visitPtrToIntInst(PtrToIntInst& I) {
         break;
       if(isa<CallInst>(V))
         break;
-      V = dyn_cast<Value>(*(V->user_begin()));
+      V = dyn_cast<Value>(*(V->use_begin()));
     }
     if(isa<BranchInst>(V)){
       NumBoringIntToPtr++;
@@ -1442,7 +1443,10 @@ void handleMagicSections(DSGraph* GlobalsGraph, Module& M) {
 char LocalDataStructures::ID;
 
 bool LocalDataStructures::runOnModule(Module &M) {
-  init(&M.getDataLayout());
+  DataLayout *TD = getAnalysisIfAvailable<DataLayout>();
+  assert(TD && "LocalDataStructures::runOnModule: "
+               "DataLayout pass not available!");
+  init(TD);
   addrAnalysis = &getAnalysis<AddressTakenAnalysis>();
 
   // First step, build the globals graph.

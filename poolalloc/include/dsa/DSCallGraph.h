@@ -19,7 +19,7 @@
 
 #include <cstddef>
 #include "llvm/ADT/EquivalenceClasses.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/Support/CallSite.h"
 
 #include <cassert>
 #include <map>

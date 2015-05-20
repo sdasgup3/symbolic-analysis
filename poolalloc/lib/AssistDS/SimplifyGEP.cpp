@@ -15,10 +15,11 @@
 #define DEBUG_TYPE "simplify-gep"
 
 #include "assistDS/SimplifyGEP.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 
@@ -75,7 +76,10 @@ static void preprocess(Module& M) {
 //  false - The module was not modified.
 //
 bool SimplifyGEP::runOnModule(Module& M) {
-  const DataLayout &TD = M.getDataLayout();
+  DataLayout *TD_ptr = getAnalysisIfAvailable<DataLayout>();
+  assert(TD_ptr && "SimplifyGEP::runOnModule: "
+                   "DataLayout pass not available!");
+  const DataLayout & TD = *TD_ptr;
   preprocess(M);
   for (Module::iterator F = M.begin(); F != M.end(); ++F){
     for (Function::iterator B = F->begin(), FE = F->end(); B != FE; ++B) {      

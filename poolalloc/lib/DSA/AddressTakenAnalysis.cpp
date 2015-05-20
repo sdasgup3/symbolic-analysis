@@ -15,11 +15,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
@@ -36,7 +36,7 @@ AddressTakenAnalysis::~AddressTakenAnalysis() {}
 
 static bool isAddressTaken(Value* V) {
   for (Value::use_iterator I = V->use_begin(), E = V->use_end(); I != E; ++I) {
-    User *U = I->getUser();
+    User *U = *I;
     if(isa<StoreInst>(U))
       return true;
     if (!isa<CallInst>(U) && !isa<InvokeInst>(U)) {
@@ -60,7 +60,7 @@ static bool isAddressTaken(Value* V) {
       // are never used
     } else {
       llvm::CallSite CS(cast<Instruction>(U));
-      if (!CS.isCallee(&(*I)))
+      if (!CS.isCallee(I))
         return true;
     }
   }

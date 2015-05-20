@@ -18,7 +18,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/Support/CallSite.h"
 
 #include <list>
 

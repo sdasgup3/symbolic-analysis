@@ -18,11 +18,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
 
 #include <vector>
 // Pass statistics

@@ -20,7 +20,7 @@
 #include <set>
 
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/Support/CallSite.h"
 
 namespace llvm {
 

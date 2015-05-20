@@ -42,7 +42,7 @@ bool AllocIdentify::flowsFrom(Value *Dest,Value *Src) {
   }
   if(PHINode *PN = dyn_cast<PHINode>(Dest)) {
     Function *F = PN->getParent()->getParent();
-    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*F).getLoopInfo();
+    LoopInfo &LI = getAnalysis<LoopInfo>(*F);
     // If this is a loop phi, ignore.
     if(LI.isLoopHeader(PN->getParent()))
       return false;
@@ -62,7 +62,7 @@ bool AllocIdentify::flowsFrom(Value *Dest,Value *Src) {
 
 bool isNotStored(Value *V) {
   // check that V is not stored to a location that is accessible outside this fn
-  for(Value::user_iterator ui = V->user_begin(), ue = V->user_end();
+  for(Value::use_iterator ui = V->use_begin(), ue = V->use_end();
       ui != ue; ++ui) {
     if(isa<StoreInst>(*ui))
       return false;
@@ -110,7 +110,7 @@ bool AllocIdentify::runOnModule(Module& M) {
       Function* F = M.getFunction(*it);
       if(!F)
         continue;
-      for(Value::user_iterator ui = F->user_begin(), ue = F->user_end();
+      for(Value::use_iterator ui = F->use_begin(), ue = F->use_end();
           ui != ue; ++ui) {
         // iterate though all calls to malloc
         if (CallInst* CI = dyn_cast<CallInst>(*ui)) {
@@ -162,7 +162,7 @@ bool AllocIdentify::runOnModule(Module& M) {
 
       if(!F)
         continue;
-      for(Value::user_iterator ui = F->user_begin(), ue = F->user_end();
+      for(Value::use_iterator ui = F->use_begin(), ue = F->use_end();
           ui != ue; ++ui) {
         // iterate though all calls to malloc
         if (CallInst* CI = dyn_cast<CallInst>(*ui)) {
@@ -189,7 +189,7 @@ bool AllocIdentify::runOnModule(Module& M) {
   return false;
 }
 void AllocIdentify::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<LoopInfo>();
   AU.setPreservesAll();
 }
 

@@ -19,15 +19,16 @@
 #include "dsa/CallTargets.h"
 #include "poolalloc/PoolAllocate.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/CFG.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Timer.h"
@@ -129,7 +130,11 @@ bool PoolAllocateSimple::runOnModule(Module &M) {
     Graphs = &getAnalysis<BasicDataStructures>();
   }
   assert (Graphs && "No DSA pass available!\n");
-  const DataLayout & TD = M.getDataLayout();
+
+  DataLayout *TD_ptr = getAnalysisIfAvailable<DataLayout>();
+  assert(TD_ptr && "PoolAllocateSimple::runOnModule: "
+                   "DataLayout pass not available!");
+  const DataLayout & TD = *TD_ptr;
 
   // Add the pool* prototypes to the module
   AddPoolPrototypes(&M);

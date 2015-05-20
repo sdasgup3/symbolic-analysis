@@ -16,9 +16,10 @@
 
 #include "assistDS/Int2PtrCmp.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/PatternMatch.h"
 
 #include <set>
 #include <map>
@@ -45,7 +46,10 @@ using namespace PatternMatch;
 //  false - The module was not modified.
 //
 bool Int2PtrCmp::runOnModule(Module& M) {
-  const DataLayout &TD = M.getDataLayout();
+  DataLayout *TD_ptr = getAnalysisIfAvailable<DataLayout>();
+  assert(TD_ptr && "Int2PtrCmp::runOnModule: "
+                   "DataLayout pass not available!");
+  const DataLayout & TD = *TD_ptr;
   for (Module::iterator F = M.begin(); F != M.end(); ++F) {
     for (Function::iterator B = F->begin(), FE = F->end(); B != FE; ++B) {      
       for (BasicBlock::iterator I = B->begin(), BE = B->end(); I != BE;) {

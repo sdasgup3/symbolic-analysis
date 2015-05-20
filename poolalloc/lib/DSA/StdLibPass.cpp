@@ -18,13 +18,13 @@
 #include "dsa/DSGraph.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/Timer.h"
 #include <iostream>
 #include "llvm/IR/Module.h"
@@ -453,7 +453,7 @@ void
 StdLibDataStructures::eraseCallsTo(Function* F) {
   typedef std::pair<DSGraph*,Function*> RemovalPair;
   DenseSet<RemovalPair> ToRemove;
-  for (Value::user_iterator ii = F->user_begin(), ee = F->user_end();
+  for (Value::use_iterator ii = F->use_begin(), ee = F->use_end();
        ii != ee; ++ii)
     if (CallInst* CI = dyn_cast<CallInst>(*ii)){
       if (CI->getCalledValue() == F) {
@@ -473,7 +473,7 @@ StdLibDataStructures::eraseCallsTo(Function* F) {
       }
     } else if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*ii)) {
       if(CE->isCast()) {
-        for (Value::user_iterator ci = CE->user_begin(), ce = CE->user_end();
+        for (Value::use_iterator ci = CE->use_begin(), ce = CE->use_end();
              ci != ce; ++ci) {
           if (CallInst* CI = dyn_cast<CallInst>(*ci)){
             if(CI->getCalledValue() == CE) {
@@ -524,7 +524,7 @@ StdLibDataStructures::processRuntimeCheck (Module & M,
   // Scan through all direct calls to the function (there should only be direct
   // calls) and process each one.
   //
-  for (Value::user_iterator ii = F->user_begin(), ee = F->user_end();
+  for (Value::use_iterator ii = F->use_begin(), ee = F->use_end();
        ii != ee; ++ii) {
     if (CallInst* CI = dyn_cast<CallInst>(*ii)) {
       if (CI->getCalledValue() == F) {
@@ -679,7 +679,7 @@ StdLibDataStructures::runOnModule (Module &M) {
 
 
 void StdLibDataStructures::processFunction(int x, Function *F) {
-  for (Value::user_iterator ii = F->user_begin(), ee = F->user_end();
+  for (Value::use_iterator ii = F->use_begin(), ee = F->use_end();
        ii != ee; ++ii)
     if (CallInst* CI = dyn_cast<CallInst>(*ii)){
       if (CI->getCalledValue() == F) {
@@ -827,7 +827,7 @@ void StdLibDataStructures::processFunction(int x, Function *F) {
       }
     } else if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*ii)) {
       if(CE->isCast()) 
-        for (Value::user_iterator ci = CE->user_begin(), ce = CE->user_end();
+        for (Value::use_iterator ci = CE->use_begin(), ce = CE->use_end();
              ci != ce; ++ci) {
 
           if (CallInst* CI = dyn_cast<CallInst>(*ci)){

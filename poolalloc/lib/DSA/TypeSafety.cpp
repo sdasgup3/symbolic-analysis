@@ -18,6 +18,7 @@
 #include "dsa/TypeSafety.h"
 
 #include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
@@ -333,7 +334,9 @@ TypeSafety<dsa>::runOnModule(Module & M) {
   //
   // Get access to prerequisite passes.
   //
-  TD      = &M.getDataLayout();
+  TD = getAnalysisIfAvailable<DataLayout>();
+  assert(TD && "TypeSafety<dsa>::runOnModule: "
+               "DataLayout pass not available!");
   dsaPass = &getAnalysis<dsa>();
 
   //

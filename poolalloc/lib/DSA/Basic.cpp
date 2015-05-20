@@ -15,15 +15,16 @@
 #include "dsa/DataStructure.h"
 #include "dsa/DSGraph.h"
 
-#include "llvm/IR/InstVisitor.h"
+#include "llvm/InstVisitor.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/TypeBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 
@@ -33,7 +34,10 @@ X("dsa-basic", "Basic Data Structure Analysis(No Analysis)");
 char BasicDataStructures::ID = 0;
 
 bool BasicDataStructures::runOnModule(Module &M) {
-  init(&M.getDataLayout());
+  DataLayout *TD = getAnalysisIfAvailable<DataLayout>();
+  assert(TD && "BasicDataStructures::runOnModule: "
+               "DataLayout pass not available!");
+  init(TD);
 
   //
   // Create a void pointer type.  This is simply a pointer to an 8 bit value.
