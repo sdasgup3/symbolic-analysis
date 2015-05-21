@@ -2285,6 +2285,22 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
 
+     const MemoryObject *mo;
+    if (interpreterOpts.PerformAliasAnalysisChecks) {
+      ResolutionList rl;
+      solver->setTimeout(stpTimeout);
+      if (state.addressSpace.resolve(state, solver, base, rl, 0,
+                                     stpTimeout, false)) {
+        terminateStateEarly(state, "Query timed out (resolve).");
+      }
+      solver->setTimeout(0);
+
+      assert(rl.size() == 1 && "AACHECKS: GetElemPtr base was not resolved "
+                               "to exactly one memory object!");
+
+      mo = rl.begin()->first;
+    }
+
     for (std::vector< std::pair<unsigned, uint64_t> >::iterator 
            it = kgepi->indices.begin(), ie = kgepi->indices.end(); 
          it != ie; ++it) {
@@ -2298,6 +2314,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       base = AddExpr::create(base,
                              Expr::createPointer(kgepi->offset));
     bindLocal(ki, state, base);
+
+    if (interpreterOpts.PerformAliasAnalysisChecks) {
+      ref<Expr> offset = mo->getOffsetExpr(base);
+      ref<Expr> boundsCheck = mo->getBoundsCheckOffset(offset);
+      state.addConstraint(boundsCheck);
+    }
+
     break;
   }
 
@@ -3763,7 +3786,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       return;
     }
 
-    if (inBounds || (interpreterOpts.PerformAliasAnalysisChecks && !isWrite)) {
+    if (inBounds) {
       const ObjectState *os = op.second;
       if (MaxSymArraySize && mo->size >= MaxSymArraySize) {
         address = toConstant(state, address, "max-sym-array-size");
