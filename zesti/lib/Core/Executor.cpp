@@ -2285,7 +2285,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
 
-     const MemoryObject *mo;
+    const MemoryObject *mo;
     if (interpreterOpts.PerformAliasAnalysisChecks) {
       ResolutionList rl;
       solver->setTimeout(stpTimeout);
