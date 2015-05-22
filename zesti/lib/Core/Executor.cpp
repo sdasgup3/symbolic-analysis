@@ -2320,6 +2320,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     if (interpreterOpts.PerformAliasAnalysisChecks) {
       ref<Expr> boundsCheck;
+      ref<Expr> boundsCheckPlus1;
       for (ResolutionList::iterator I = rl.begin(), E = rl.end(); I != E; ++I) {
         const MemoryObject *mo = I->first;
         // klee_message("AACHECKS: mo address: %lu, size: %u",
@@ -2329,11 +2330,17 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           I == rl.begin() ?
           mo->getBoundsCheckOffset(offset) :
           OrExpr::create(boundsCheck, mo->getBoundsCheckOffset(offset));
+        boundsCheckPlus1 =
+          I == rl.begin() ?
+          mo->getBoundsCheckOffset(offset, 0) :
+          OrExpr::create(boundsCheck, mo->getBoundsCheckOffset(offset, 0));
       }
       //dumpExpr("getelemptr added condition: ", base);
       //dumpExpr("getelemptr added condition: ", boundsCheck);
       if (!boundsCheck->isFalse())
         state.addConstraint(boundsCheck);
+      else
+        state.addConstraint(boundsCheckPlus1);
     }
 
     break;
