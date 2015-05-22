@@ -58,6 +58,14 @@ module load gcc
 make
 ```
 
+Build poolalloc
+---------------
+```
+../SymbolicAnalysis/poolalloc/configure --with-llvmsrc=/home/kasampa2/Documents/llvm/llvm.src --with-llvmobj=/home/kasampa2/Documents/llvm/llvm.obj --with-gcc-toolchain=/home/kasampa2/Documents/gcc/gcc-4.8.2.inst --with-extra-options=-std=c++11 --with-extra-ld-options=-Wl,-rpath,/home/kasampa2/Documents/gcc/gcc-4.8.2.inst/lib64 --disable-optimized --enable-assertions
+
+make CXXFLAGS+=-std=c++11 ENABLE_OPTIMIZED=1
+```
+
 Build klee/zesti
 --------------
 ```
