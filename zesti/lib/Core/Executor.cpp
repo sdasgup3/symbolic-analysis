@@ -1676,6 +1676,15 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
+static void  dumpExpr(const char* msg, ref<Expr> base)
+{
+   std::string str;
+   std::stringstream rso(str);
+   base->print(rso);
+   klee_message("AACHECKS: %s ", msg );
+   klee_message("AACHECKS: %s ", rso.str().c_str());
+}
+
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
 /*
@@ -2285,20 +2294,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
 
-    const MemoryObject *mo;
+    ResolutionList rl;
     if (interpreterOpts.PerformAliasAnalysisChecks) {
-      ResolutionList rl;
       solver->setTimeout(stpTimeout);
       if (state.addressSpace.resolve(state, solver, base, rl, 0,
                                      stpTimeout, false)) {
         terminateStateEarly(state, "Query timed out (resolve).");
       }
       solver->setTimeout(0);
-
-      assert(rl.size() == 1 && "AACHECKS: GetElemPtr base was not resolved "
-                               "to exactly one memory object!");
-
-      mo = rl.begin()->first;
     }
 
     for (std::vector< std::pair<unsigned, uint64_t> >::iterator 
@@ -2316,9 +2319,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     bindLocal(ki, state, base);
 
     if (interpreterOpts.PerformAliasAnalysisChecks) {
-      ref<Expr> offset = mo->getOffsetExpr(base);
-      ref<Expr> boundsCheck = mo->getBoundsCheckOffset(offset);
-      state.addConstraint(boundsCheck);
+      ref<Expr> boundsCheck;
+      for (ResolutionList::iterator I = rl.begin(), E = rl.end(); I != E; ++I) {
+        const MemoryObject *mo = I->first;
+        // klee_message("AACHECKS: mo address: %lu, size: %u",
+        //                         mo->address, mo->size);
+        ref<Expr> offset = mo->getOffsetExpr(base);
+        boundsCheck =
+          I == rl.begin() ?
+          mo->getBoundsCheckOffset(offset) :
+          OrExpr::create(boundsCheck, mo->getBoundsCheckOffset(offset));
+      }
+      //dumpExpr("getelemptr added condition: ", base);
+      //dumpExpr("getelemptr added condition: ", boundsCheck);
+      if (!boundsCheck->isFalse())
+        state.addConstraint(boundsCheck);
     }
 
     break;
@@ -3727,6 +3742,20 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = state.constraints.simplifyExpr(value);
   }
 
+  // If this is a read, perform an alias/pointer check
+  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+    // Collect memory objects that may be pointed by the address pointer
+    // in this state
+    ResolutionList rl;
+    solver->setTimeout(stpTimeout);
+    if (state.addressSpace.resolve(state, solver, address, rl,
+                                   0, stpTimeout, false)) {
+      terminateStateEarly(state, "Query timed out (resolve).");
+    }
+    solver->setTimeout(0);
+
+    pointerChecker(state, address, target, rl);
+  }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
   // expr for bounds checking
@@ -3742,14 +3771,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   }
   solver->setTimeout(0);
   if (success) {
-
-    // If this is a read, perform an alias/pointer check
-    if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
-      ResolutionList rl;
-      rl.push_back(op);
-      pointerChecker(state, address, target, rl);
-    }
-
     const MemoryObject *mo = op.first;
 
    // bounds check
