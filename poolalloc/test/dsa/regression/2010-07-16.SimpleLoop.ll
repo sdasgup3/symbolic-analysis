@@ -250,14 +250,14 @@ bb.i18:                                           ; preds = %Perl_save_sptr.exit
   unreachable
 
 Perl_save_I32.exit19:                             ; preds = %Perl_save_sptr.exit
-  %tmp203 = getelementptr inbounds %struct.COP, %struct.COP* undef, i64 0, i32 13 ; <i16*> [#uses=1]
+  %tmp203 = getelementptr inbounds %struct.COP* undef, i64 0, i32 13 ; <i16*> [#uses=1]
   br i1 undef, label %bb.i1, label %Perl_save_I16.exit
 
 bb.i1:                                            ; preds = %Perl_save_I32.exit19
   unreachable
 
 Perl_save_I16.exit:                               ; preds = %Perl_save_I32.exit19
-  %tmp223 = getelementptr inbounds %union.ANY, %union.ANY* %tmp139, i64 undef, i32 0 ; <i8**> [#uses=1]
+  %tmp223 = getelementptr inbounds %union.ANY* %tmp139, i64 undef, i32 0 ; <i8**> [#uses=1]
   %tmp224 = bitcast i16* %tmp203 to i8*           ; <i8*> [#uses=1]
   store i8* %tmp224, i8** %tmp223, align 8
   br i1 undef, label %bb.i6, label %Perl_save_pptr.exit
@@ -309,10 +309,10 @@ bb.i37:                                           ; preds = %Perl_save_pptr.exit
 
 Perl_save_pptr.exit38:                            ; preds = %bb.i37, %Perl_save_pptr.exit33
   %tmp404 = phi %union.ANY* [ undef, %bb.i37 ], [ %tmp139, %Perl_save_pptr.exit33 ] ; <%union.ANY*> [#uses=3]
-  %tmp407 = load i8*, i8** @PL_lex_casestack, align 8  ; <i8*> [#uses=1]
-  %tmp408 = getelementptr inbounds %union.ANY, %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
+  %tmp407 = load i8** @PL_lex_casestack, align 8  ; <i8*> [#uses=1]
+  %tmp408 = getelementptr inbounds %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
   store i8* %tmp407, i8** %tmp408, align 8
-  %tmp411 = getelementptr inbounds %union.ANY, %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
+  %tmp411 = getelementptr inbounds %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
   store i8* bitcast (i8** @PL_lex_casestack to i8*), i8** %tmp411, align 8
   br i1 undef, label %bb.i23, label %Perl_save_destructor.exit
 
@@ -320,7 +320,7 @@ bb.i23:                                           ; preds = %Perl_save_pptr.exit
   unreachable
 
 Perl_save_destructor.exit:                        ; preds = %Perl_save_pptr.exit38
-  %tmp433 = getelementptr inbounds %union.ANY, %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
+  %tmp433 = getelementptr inbounds %union.ANY* %tmp404, i64 undef, i32 0 ; <i8**> [#uses=1]
   store i8* bitcast (void (i8*)* @restore_rsfp to i8*), i8** %tmp433
   br i1 undef, label %bb.i25, label %Perl_save_sptr.exit26
 
@@ -478,7 +478,7 @@ bb6:                                              ; preds = %bb5
   br i1 undef, label %bb.i2, label %bb8.Perl_push_scope.exit3_crit_edge
 
 bb8.Perl_push_scope.exit3_crit_edge:              ; preds = %bb6
-  %tmp86 = load %struct.SV*, %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
+  %tmp86 = load %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
   br i1 undef, label %bb1.i, label %bb.i5
 
 bb.i2:                                            ; preds = %bb6
@@ -495,8 +495,8 @@ Perl_newSVpv.exit:                                ; preds = %bb1.i, %bb.i5
   br i1 undef, label %bb.i4, label %Perl_push_scope.exit3.Perl_save_freesv.exit_crit_edge
 
 Perl_push_scope.exit3.Perl_save_freesv.exit_crit_edge: ; preds = %Perl_newSVpv.exit
-  %.pre14 = load %union.ANY*, %union.ANY** @PL_savestack, align 8 ; <%union.ANY*> [#uses=1]
-  %tmp116 = getelementptr inbounds %union.ANY, %union.ANY* %.pre14, i64 undef, i32 0 ; <i8**> [#uses=1]
+  %.pre14 = load %union.ANY** @PL_savestack, align 8 ; <%union.ANY*> [#uses=1]
+  %tmp116 = getelementptr inbounds %union.ANY* %.pre14, i64 undef, i32 0 ; <i8**> [#uses=1]
   %tmp117 = bitcast %struct.SV* %sv.0.i to i8*    ; <i8*> [#uses=1]
   store i8* %tmp117, i8** %tmp116, align 8
   br i1 undef, label %bb9, label %bb10
@@ -642,14 +642,14 @@ entry:
 
 define fastcc void @Perl_newXS_SPEC5() nounwind ssp {
 entry:
-  %tmp53 = load %struct.SV*, %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
+  %tmp53 = load %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
   br i1 undef, label %bb1.i, label %bb.i
 
 bb.i:                                             ; preds = %entry
   %tmp64 = bitcast %struct.SV* %tmp53 to %struct.CV* ; <%struct.CV*> [#uses=1]
-  %tmp76 = getelementptr inbounds %struct.CV, %struct.CV* %tmp64, i64 0, i32 0 ; <%struct.XPVCV**> [#uses=1]
-  %tmp86 = load %struct.XPVCV*, %struct.XPVCV** %tmp76, align 8   ; <%struct.XPVCV*> [#uses=1]
-  %tmp87 = getelementptr inbounds %struct.XPVCV, %struct.XPVCV* %tmp86, i64 0, i32 10 ; <void (%struct.CV*)**> [#uses=1]
+  %tmp76 = getelementptr inbounds %struct.CV* %tmp64, i64 0, i32 0 ; <%struct.XPVCV**> [#uses=1]
+  %tmp86 = load %struct.XPVCV** %tmp76, align 8   ; <%struct.XPVCV*> [#uses=1]
+  %tmp87 = getelementptr inbounds %struct.XPVCV* %tmp86, i64 0, i32 10 ; <void (%struct.CV*)**> [#uses=1]
   store void (%struct.CV*)* @XS_UNIVERSAL_isa, void (%struct.CV*)** %tmp87, align 8
   unreachable
 
@@ -659,14 +659,14 @@ bb1.i:                                            ; preds = %entry
 
 define fastcc void @Perl_newXS_SPEC7() nounwind ssp {
 entry:
-  %tmp53 = load %struct.SV*, %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
+  %tmp53 = load %struct.SV** @PL_sv_root, align 8 ; <%struct.SV*> [#uses=1]
   br i1 undef, label %bb1.i, label %bb.i
 
 bb.i:                                             ; preds = %entry
   %tmp64 = bitcast %struct.SV* %tmp53 to %struct.CV* ; <%struct.CV*> [#uses=1]
-  %tmp76 = getelementptr inbounds %struct.CV, %struct.CV* %tmp64, i64 0, i32 0 ; <%struct.XPVCV**> [#uses=1]
-  %tmp86 = load %struct.XPVCV*, %struct.XPVCV** %tmp76, align 8   ; <%struct.XPVCV*> [#uses=1]
-  %tmp87 = getelementptr inbounds %struct.XPVCV, %struct.XPVCV* %tmp86, i64 0, i32 10 ; <void (%struct.CV*)**> [#uses=1]
+  %tmp76 = getelementptr inbounds %struct.CV* %tmp64, i64 0, i32 0 ; <%struct.XPVCV**> [#uses=1]
+  %tmp86 = load %struct.XPVCV** %tmp76, align 8   ; <%struct.XPVCV*> [#uses=1]
+  %tmp87 = getelementptr inbounds %struct.XPVCV* %tmp86, i64 0, i32 10 ; <void (%struct.CV*)**> [#uses=1]
   store void (%struct.CV*)* @XS_UNIVERSAL_VERSION, void (%struct.CV*)** %tmp87, align 8
   unreachable
 

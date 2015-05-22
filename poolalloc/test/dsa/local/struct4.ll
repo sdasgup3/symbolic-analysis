@@ -20,24 +20,24 @@ entry:
   %d = alloca i32                                 ; <i32*> [#uses=1]
   %"alloca point" = bitcast i32 0 to i32          ; <i32> [#uses=0]
   store i32 5, i32* %x, align 4
-  %1 = getelementptr inbounds %struct.R, %struct.R* %r, i32 0, i32 0 ; <i32**> [#uses=1]
+  %1 = getelementptr inbounds %struct.R* %r, i32 0, i32 0 ; <i32**> [#uses=1]
   store i32* %x, i32** %1, align 8
-  %2 = getelementptr inbounds %struct.R, %struct.R* %r, i32 0, i32 1 ; <i32**> [#uses=1]
+  %2 = getelementptr inbounds %struct.R* %r, i32 0, i32 1 ; <i32**> [#uses=1]
   store i32* %y, i32** %2, align 8
-  %3 = getelementptr inbounds %struct.R, %struct.R* %r, i32 0, i32 2 ; <i8**> [#uses=1]
+  %3 = getelementptr inbounds %struct.R* %r, i32 0, i32 2 ; <i8**> [#uses=1]
   store i8* %c, i8** %3, align 8
   %r1 = bitcast %struct.R* %r to i32**            ; <i32**> [#uses=1]
   store i32** %r1, i32*** %p, align 8
-  %4 = load i32**, i32*** %p, align 8                    ; <i32**> [#uses=1]
-  %5 = load i32*, i32** %4, align 8                     ; <i32*> [#uses=1]
-  %6 = load i32, i32* %5, align 4                      ; <i32> [#uses=1]
+  %4 = load i32*** %p, align 8                    ; <i32**> [#uses=1]
+  %5 = load i32** %4, align 8                     ; <i32*> [#uses=1]
+  %6 = load i32* %5, align 4                      ; <i32> [#uses=1]
   store i32 %6, i32* %d, align 4
   store i32 0, i32* %0, align 4
-  %7 = load i32, i32* %0, align 4                      ; <i32> [#uses=1]
+  %7 = load i32* %0, align 4                      ; <i32> [#uses=1]
   store i32 %7, i32* %retval, align 4
   br label %return
 
 return:                                           ; preds = %entry
-  %retval2 = load i32, i32* %retval                    ; <i32> [#uses=1]
+  %retval2 = load i32* %retval                    ; <i32> [#uses=1]
   ret i32 %retval2
 }

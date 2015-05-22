@@ -20,19 +20,19 @@ entry:
   %x = alloca i32                                 ; <i32*> [#uses=1]
   %y = alloca i32                                 ; <i32*> [#uses=1]
   %"alloca point" = bitcast i32 0 to i32          ; <i32> [#uses=0]
-  %1 = getelementptr inbounds %struct.R, %struct.R* %r, i32 0, i32 0 ; <i32**> [#uses=1]
+  %1 = getelementptr inbounds %struct.R* %r, i32 0, i32 0 ; <i32**> [#uses=1]
   store i32* %x, i32** %1, align 8
-  %2 = getelementptr inbounds %struct.R, %struct.R* %r, i32 0, i32 1 ; <i32**> [#uses=1]
+  %2 = getelementptr inbounds %struct.R* %r, i32 0, i32 1 ; <i32**> [#uses=1]
   store i32* %y, i32** %2, align 8
   %r1 = bitcast %struct.R* %r to i64*             ; <i64*> [#uses=1]
-  %3 = load i64, i64* %r1, align 8                     ; <i64> [#uses=1]
+  %3 = load i64* %r1, align 8                     ; <i64> [#uses=1]
   store i64 %3, i64* %d, align 8
   store i32 0, i32* %0, align 4
-  %4 = load i32, i32* %0, align 4                      ; <i32> [#uses=1]
+  %4 = load i32* %0, align 4                      ; <i32> [#uses=1]
   store i32 %4, i32* %retval, align 4
   br label %return
 
 return:                                           ; preds = %entry
-  %retval3 = load i32, i32* %retval                    ; <i32> [#uses=1]
+  %retval3 = load i32* %retval                    ; <i32> [#uses=1]
   ret i32 %retval3
 }
