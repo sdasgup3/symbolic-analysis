@@ -89,7 +89,7 @@
 #include "llvm/Support/Process.h"
 #endif
 
-#include "checker/interface/AliasAnalysisCheckerInterface.h"
+#include "symbexchecks/SymbExChecksInterface.h"
 
 #include <cassert>
 #include <algorithm>
@@ -3585,14 +3585,14 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = state.constraints.simplifyExpr(value);
   }
 
-  // If this is a read, perform an alias/pointer check
+  // If this is a read, perform an alias/pointer check.
   if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
-    // Set of alias analysis abstract locations that may be pointed
-    // by the address pointer in the current state
-    aachecker::AbstractLocSet foundTargets;
+    // Set of allocation sites of memory objects that may be pointed by
+    // the address pointer in the current state.
+    std::set<const Value *> foundTargets;
 
     // Collect memory objects that may be pointed by the address pointer
-    // in this state
+    // in this state.
     ResolutionList rl;  
     solver->setTimeout(stpTimeout);
     if (state.addressSpace.resolve(state, solver, address, rl,
@@ -3609,8 +3609,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                    rso_addr.str().c_str());
     }
 
-    // Add abstract locations corresponding to found memory objects to the
-    // foundTargets set
+    // Add allocation sites corresponding to found memory objects to the
+    // foundTargets set.
     for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
       const MemoryObject *mo = i->first;
 
@@ -3646,7 +3646,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       // of main, then the memory object is the array pointed by argv.
       // Our analysis represents that allocation site with the argv pointer.
       // In klee, the first instruction of main is a call to
-      // klee_mark_args_symbolic
+      // klee_mark_args_symbolic, hence we use this to identify the argv
+      // memory object.
       bool isArgv = false;
       Value *argvPtr = 0;
       if (const CallInst *ci = dyn_cast<CallInst>(mo->allocSite)) {
@@ -3660,56 +3661,52 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         isArgv = ci == mainFn->begin()->begin();
       }
 
-      const aachecker::AbstractLocSet &als =
-        aainterface->getAllocatableLocs(isArgv ? argvPtr : mo->allocSite);
-      for (aachecker::AbstractLocSet::iterator alsI = als.begin(),
-           alsIE = als.end(); alsI != alsIE; ++alsI) {
-        const aachecker::AbstractLoc *al = *alsI;
-        foundTargets.insert(al);
+      if (isArgv && DebugPrintAAChecks)
+        klee_message("AACHECKS: This target is the argv array.");
 
-        if (DebugPrintAAChecks) {
-          klee_message("AACHECKS:  {%p}", al);
-        }
-      }
+      // Add the allocation site of the memory object to the foundTargets set.
+      foundTargets.insert(isArgv ? argvPtr : mo->allocSite);
     }
 
-    // Points-to set of the base address according to the pointer analysis
+    // Get the Value object for the dereferenced pointer.
     const Value *baseValue =
       dyn_cast<LoadInst>(target->inst)->getPointerOperand();
-    const aachecker::AbstractLocSet &pointsToSet =
-      *(aainterface->getAbstractLocSetForValue(baseValue));
 
     if (DebugPrintAAChecks) {
       std::string base_str;
       llvm::raw_string_ostream rso_base(base_str);
       baseValue->print(rso_base);
-      klee_message("AACHECKS: Points to set of base value %s"
-                   " (according to pointer anlysis):",
+      klee_message("AACHECKS: Performing check for the base value %s, "
+                   "corresponding to the above symbolic address:",
                    rso_base.str().c_str());
-      for (aachecker::AbstractLocSet::iterator ptsI = pointsToSet.begin(),
-           ptsIE = pointsToSet.end(); ptsI != ptsIE; ++ptsI) {
-        const aachecker::AbstractLoc *pts = *ptsI;
-        const Value *ptsAllocSite = aainterface->getAllocationSite(pts);
-        std::string pts_str;
-        llvm::raw_string_ostream rso_pts(pts_str);
-        if (const Function *f = dyn_cast<Function>(ptsAllocSite)) {
-          klee_message("AACHECKS:Function %s {%p}",
-                       f->getName().str().c_str(), pts);
-        }
-        else {
-          ptsAllocSite->print(rso_pts);
-          klee_message("AACHECKS:  %s {%p}", rso_pts.str().c_str(), pts);
-        }
-      }
     }
 
-    // Assert that pointsToSet is a superset of foundTargets
-    for (aachecker::AbstractLocSet::iterator tgtI = foundTargets.begin(),
-         tgtIE = foundTargets.end(); tgtI != tgtIE; ++tgtI)
-      if (pointsToSet.find(*tgtI) == pointsToSet.end()) {
+    // Assert that the pointer analysis predicts that each allocation site in
+    // foundTargets may alias with the dereferenced pointer.
+    for (std::set<const Value *>::iterator tgtI = foundTargets.begin(),
+         tgtIE = foundTargets.end(); tgtI != tgtIE; ++tgtI) {
+
+      const Value *targetAllocSite = *tgtI;
+
+      if (DebugPrintAAChecks) {
+        std::string tgt_str;
+        llvm::raw_string_ostream rso_tgt(tgt_str);
+        if (const Function *f = dyn_cast<Function>(targetAllocSite)) {
+          klee_message("AACHECKS:Checking for aliasing with Function %s",
+                       f->getName().str().c_str());
+        }
+        else {
+          targetAllocSite->print(rso_tgt);
+          klee_message("AACHECKS: Checking for aliasing with %s",
+                       rso_tgt.str().c_str());
+        }
+      }
+
+      if (!aainterface->mayAlias(baseValue, targetAllocSite)) {
         terminateStateOnError(state, "failed alias/pointer analysis check",
                               "aachecks");
       }
+    }
   }
 
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic

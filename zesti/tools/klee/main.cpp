@@ -28,7 +28,7 @@
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Target/TargetLibraryInfo.h"
-#include "checker/interface/AliasAnalysisInterface.h"
+#include "symbexchecks/AAChecksInterface.h"
 
 
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
@@ -1362,15 +1362,15 @@ void reserveFirstFds() {
 // Apply the specified alias/pointer analysis and create the interface
 // that will be used for checking - for now we always apply a
 // basicaa+tbaa chain
-aachecker::AliasAnalysisCheckerInterface *
+symbexchecks::SymbExChecksInterface *
 applyAliasAnalysis(PassManager &passes, Module *m) {
   passes.add(new TargetLibraryInfo());
   passes.add(createNoAAPass());
   passes.add(createBasicAliasAnalysisPass());
   passes.add(createTypeBasedAliasAnalysisPass());
 
-  aachecker::AliasAnalysisCheckerInterface *aainterface =
-    new aachecker::AliasAnalysisInterface();
+  symbexchecks::SymbExChecksInterface *aainterface =
+    new symbexchecks::AAChecksInterface();
   passes.add(aainterface);
 
   passes.run(*m);
@@ -1662,7 +1662,7 @@ int main(int argc, char **argv, char **envp) {
   // checking
   PassManager aliasAnalysisPasses;
   if (PerformAliasAnalysisChecks) {
-    aachecker::AliasAnalysisCheckerInterface *aainterface =
+    symbexchecks::SymbExChecksInterface *aainterface =
       applyAliasAnalysis(aliasAnalysisPasses, mainModule);
     if (!aainterface)
       klee_error("Unable to apply requested pointer/alias analysis");

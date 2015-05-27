@@ -106,7 +106,7 @@ private:
   Searcher *searcher;
 
   // This object contains the alias analysis result
-  aachecker::AliasAnalysisCheckerInterface *aainterface;
+  symbexchecks::SymbExChecksInterface *aainterface;
 
   ExternalDispatcher *externalDispatcher;
   TimingSolver *solver;
@@ -449,11 +449,11 @@ public:
   /*** Alias analysis information ***/
 
   virtual void
-  setAliasAnalysisResult(aachecker::AliasAnalysisCheckerInterface *value) {
+  setAliasAnalysisResult(symbexchecks::SymbExChecksInterface *value) {
     aainterface = value;
   }
 
-  virtual aachecker::AliasAnalysisCheckerInterface *getAliasAnalysisResult() {
+  virtual symbexchecks::SymbExChecksInterface *getAliasAnalysisResult() {
     return aainterface;
   }
 

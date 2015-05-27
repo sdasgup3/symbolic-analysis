@@ -21,8 +21,8 @@ class Function;
 class Module;
 }
 
-namespace aachecker {
-  class AliasAnalysisCheckerInterface;
+namespace symbexchecks {
+  class SymbExChecksInterface;
 }
 
 namespace klee {
@@ -138,9 +138,9 @@ public:
   /*** Alias analysis information ***/
 
   virtual void setAliasAnalysisResult(
-                 aachecker::AliasAnalysisCheckerInterface *value) = 0;
+                 symbexchecks::SymbExChecksInterface *value) = 0;
 
-  virtual aachecker::AliasAnalysisCheckerInterface *
+  virtual symbexchecks::SymbExChecksInterface *
   getAliasAnalysisResult(void) = 0;
 
   /*** Runtime options ***/
