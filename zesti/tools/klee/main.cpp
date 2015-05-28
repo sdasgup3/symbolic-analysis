@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "symbexchecks/AAChecksInterface.h"
+#include "symbexchecks/DSAChecksInterface.h"
 
 
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
@@ -1359,9 +1360,8 @@ void reserveFirstFds() {
   }
 }
 
-// Apply the specified alias/pointer analysis and create the interface
-// that will be used for checking - for now we always apply a
-// basicaa+tbaa chain
+// Apply a basicaa+tbaa chain and create the interface
+// that will be used for checking.
 symbexchecks::SymbExChecksInterface *
 applyAliasAnalysis(PassManager &passes, Module *m) {
   passes.add(new TargetLibraryInfo());
@@ -1371,6 +1371,22 @@ applyAliasAnalysis(PassManager &passes, Module *m) {
 
   symbexchecks::SymbExChecksInterface *aainterface =
     new symbexchecks::AAChecksInterface();
+  passes.add(aainterface);
+
+  passes.run(*m);
+
+  return aainterface;
+}
+
+// Apply the DSA pointer analysis and create the interface
+// that will be used for checking.
+symbexchecks::SymbExChecksInterface *
+applyDSA(PassManager &passes, Module *m) {
+  passes.add(new DataLayout(m));
+  passes.add(new EQTDDataStructures()); 
+
+  symbexchecks::SymbExChecksInterface *aainterface =
+    new symbexchecks::DSAChecksInterface();
   passes.add(aainterface);
 
   passes.run(*m);
@@ -1660,10 +1676,10 @@ int main(int argc, char **argv, char **envp) {
   // Apply the specified alias/pointer analysis and provide the
   // interpreter with the interface object, that will be used for
   // checking
-  PassManager aliasAnalysisPasses;
+  PassManager DSAPasses;
   if (PerformAliasAnalysisChecks) {
     symbexchecks::SymbExChecksInterface *aainterface =
-      applyAliasAnalysis(aliasAnalysisPasses, mainModule);
+      applyDSA(DSAPasses, mainModule);
     if (!aainterface)
       klee_error("Unable to apply requested pointer/alias analysis");
     interpreter->setAliasAnalysisResult(aainterface);

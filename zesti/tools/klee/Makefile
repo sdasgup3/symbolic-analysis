@@ -15,6 +15,7 @@ include $(LEVEL)/Makefile.config
 USEDLIBS = kleeCore.a kleeModule.a kleaverSolver.a kleaverExpr.a kleeSupport.a \
            kleeBasic.a kleeSymbExChecks.a
 LINK_COMPONENTS = jit bitreader bitwriter ipo linker engine
+POOLALLOCLIBS = LLVMDataStructure.a
 
 include $(LEVEL)/Makefile.common
 
