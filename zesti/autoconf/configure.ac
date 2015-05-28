@@ -205,6 +205,30 @@ AC_MSG_RESULT([$llvmpa_obj])
 AC_SUBST(LLVMPA_OBJ,$llvmpa_obj)
 
 dnl **************************************************************************
+dnl User options related to poolalloc/dsa.
+AC_ARG_WITH(poolallocsrc,
+  AS_HELP_STRING([--with-poolallocsrc], [poolalloc source tree root]),,
+  [with_poolallocsrc=none])
+AC_MSG_CHECKING([poolalloc src dir])
+if test X${with_poolallocsrc} = Xnone ; then
+  AC_MSG_ERROR([poolalloc source tree path was not specified: use --with-poolallocsrc to specify path])
+fi
+poolalloc_src=`cd $with_poolallocsrc 2> /dev/null; pwd`
+AC_MSG_RESULT([$poolalloc_src])
+AC_SUBST(POOLALLOC_SRC,$poolalloc_src)
+
+AC_ARG_WITH(poolallocobj,
+  AS_HELP_STRING([--with-poolallocobj], [poolalloc obj tree root]),,
+  [with_poolallocobj=none])
+AC_MSG_CHECKING([poolalloc obj dir])
+if test X${with_poolallocobj} = Xnone ; then
+  AC_MSG_ERROR([poolalloc obj tree path was not specified: use --with-poolallocobj to specify path])
+fi
+poolalloc_obj=`cd $with_poolallocobj 2> /dev/null; pwd`
+AC_MSG_RESULT([$poolalloc_obj])
+AC_SUBST(POOLALLOC_OBJ,$llvmpa_obj)
+
+dnl **************************************************************************
 dnl User option to enable uClibc support.
 
 AC_ARG_WITH(uclibc,

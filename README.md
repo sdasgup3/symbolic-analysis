@@ -83,6 +83,10 @@ When building zesti add these options to configure to help it find llvmpa:
 --with-llvmpasrc=/path/to/llvmpa/src/tree
 --with-llvmpaobj=/path/to/llvmpa/obj/tree
 
+Also, add these options to configure to help it find poolalloc:
+--with-poolallocsrc=/path/to/poolalloc/src/tree
+--with-poolallocobj=/path/to/poolalloc/obj/tree
+
 /* In case stuck in problems
 sudo ln -s /usr/include/x86_64-linux-gnu/asm/ /usr/include/asm
 In case of prblms like C compiler not working

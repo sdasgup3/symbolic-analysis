@@ -661,6 +661,8 @@ RUNTIME_ENABLE_OPTIMIZED
 ENABLE_POSIX_RUNTIME
 ENABLE_UCLIBC
 KLEE_UCLIBC
+POOLALLOC_OBJ
+POOLALLOC_SRC
 LLVMPA_OBJ
 LLVMPA_SRC
 LLVM_BUILD_MODE
@@ -728,6 +730,8 @@ with_llvm
 with_llvm_build_mode
 with_llvmpasrc
 with_llvmpaobj
+with_poolallocsrc
+with_poolallocobj
 with_uclibc
 enable_posix_runtime
 with_runtime
@@ -1384,6 +1388,8 @@ Optional Packages:
                           autodetect)
   --with-llvmpasrc        llvmpa source tree root
   --with-llvmpaobj        llvmpa obj tree root
+  --with-poolallocsrc     poolalloc source tree root
+  --with-poolallocobj     poolalloc obj tree root
   --with-uclibc           Enable use of the klee uclibc at the given path
   --with-runtime          Select build configuration for runtime libraries
                           (default Release+Asserts)
@@ -2290,6 +2296,48 @@ llvmpa_obj=`cd $with_llvmpaobj 2> /dev/null; pwd`
 { $as_echo "$as_me:$LINENO: result: $llvmpa_obj" >&5
 $as_echo "$llvmpa_obj" >&6; }
 LLVMPA_OBJ=$llvmpa_obj
+
+
+
+# Check whether --with-poolallocsrc was given.
+if test "${with_poolallocsrc+set}" = set; then
+  withval=$with_poolallocsrc;
+else
+  with_poolallocsrc=none
+fi
+
+{ $as_echo "$as_me:$LINENO: checking poolalloc src dir" >&5
+$as_echo_n "checking poolalloc src dir... " >&6; }
+if test X${with_poolallocsrc} = Xnone ; then
+  { { $as_echo "$as_me:$LINENO: error: poolalloc source tree path was not specified: use --with-poolallocsrc to specify path" >&5
+$as_echo "$as_me: error: poolalloc source tree path was not specified: use --with-poolallocsrc to specify path" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+poolalloc_src=`cd $with_poolallocsrc 2> /dev/null; pwd`
+{ $as_echo "$as_me:$LINENO: result: $poolalloc_src" >&5
+$as_echo "$poolalloc_src" >&6; }
+POOLALLOC_SRC=$poolalloc_src
+
+
+
+# Check whether --with-poolallocobj was given.
+if test "${with_poolallocobj+set}" = set; then
+  withval=$with_poolallocobj;
+else
+  with_poolallocobj=none
+fi
+
+{ $as_echo "$as_me:$LINENO: checking poolalloc obj dir" >&5
+$as_echo_n "checking poolalloc obj dir... " >&6; }
+if test X${with_poolallocobj} = Xnone ; then
+  { { $as_echo "$as_me:$LINENO: error: poolalloc obj tree path was not specified: use --with-poolallocobj to specify path" >&5
+$as_echo "$as_me: error: poolalloc obj tree path was not specified: use --with-poolallocobj to specify path" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+poolalloc_obj=`cd $with_poolallocobj 2> /dev/null; pwd`
+{ $as_echo "$as_me:$LINENO: result: $poolalloc_obj" >&5
+$as_echo "$poolalloc_obj" >&6; }
+POOLALLOC_OBJ=$llvmpa_obj
 
 
 
