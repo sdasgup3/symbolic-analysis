@@ -226,7 +226,7 @@ if test X${with_poolallocobj} = Xnone ; then
 fi
 poolalloc_obj=`cd $with_poolallocobj 2> /dev/null; pwd`
 AC_MSG_RESULT([$poolalloc_obj])
-AC_SUBST(POOLALLOC_OBJ,$llvmpa_obj)
+AC_SUBST(POOLALLOC_OBJ,$poolalloc_obj)
 
 dnl **************************************************************************
 dnl User option to enable uClibc support.
