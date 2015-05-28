@@ -9,6 +9,6 @@
 
 LEVEL=..
 
-PARALLEL_DIRS=Basic Support Expr Solver Module Core
+PARALLEL_DIRS=Basic Support Expr Solver Module Core SymbExChecks
 
 include $(LEVEL)/Makefile.common
