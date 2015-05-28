@@ -411,6 +411,7 @@ LLVMLibDir  := $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/lib
 LLVMToolDir := $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/bin
 LLVMExmplDir:= $(LLVM_OBJ_ROOT)/$(LLVM_BUILD_MODE)/examples
 LLVMPALibDir  := $(LLVMPA_OBJ_ROOT)/$(LLVM_BUILD_MODE)/lib
+POOLALLOCLibDir  := $(POOLALLOC_OBJ_ROOT)/$(LLVM_BUILD_MODE)/lib
 
 #--------------------------------------------------------------------
 # Locations of shared libraries
@@ -639,14 +640,14 @@ ifeq ($(HOST_OS),AuroraUX)
 CPP.BaseFlags += -include llvm/System/Solaris.h
 endif # !HOST_OS - AuroraUX.
 
-LD.Flags      += -L$(LibDir) -L$(LLVMLibDir) -L$(LLVMPALibDir)
+LD.Flags      += -L$(LibDir) -L$(LLVMLibDir) -L$(LLVMPALibDir) -L$(POOLALLOCLibDir)
 CPP.BaseFlags += -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 # All -I flags should go here, so that they don't confuse llvm-config.
 CPP.Flags     += $(sort -I$(PROJ_OBJ_DIR) -I$(PROJ_SRC_DIR) \
 	         $(patsubst %,-I%/include,\
 	         $(PROJ_OBJ_ROOT) $(PROJ_SRC_ROOT) \
 	         $(LLVM_OBJ_ROOT) $(LLVM_SRC_ROOT) \
-             $(LLVMPA_SRC_ROOT))) \
+             $(LLVMPA_SRC_ROOT) $(POOLALLOC_SRC_ROOT))) \
 	         $(CPP.BaseFlags)
 
 ifeq ($(BUILD_COMPONENT), 1)
@@ -749,6 +750,7 @@ $(DESTDIR)$(PROJ_bindir) $(DESTDIR)$(PROJ_libdir) $(DESTDIR)$(PROJ_includedir) $
 .PRECIOUS: $(ObjDir)/.dir $(LibDir)/.dir $(ToolDir)/.dir $(ExmplDir)/.dir
 .PRECIOUS: $(LLVMLibDir)/.dir $(LLVMToolDir)/.dir $(LLVMExmplDir)/.dir
 .PRECIOUS: $(LLVMPALibDir)/.dir
+.PRECIOUS: $(POOLALLOCLibDir)/.dir
 
 #---------------------------------------------------------
 # Handle the DIRS options for sequential construction
@@ -918,6 +920,13 @@ LLVMPALibsOptions := $(patsubst %.a.o, -l:lib%.a, $(addsuffix .o, $(LLVMPALIBS))
 LLVMPALibsOptions := $(patsubst %.o, $(LLVMPALibDir)/%.o, $(LLVMPALibsOptions))
 LLVMPAUsedLibs    := $(patsubst %.a.o, lib%.a, $(addsuffix .o, $(LLVMPALIBS)))
 LLVMPALibsPaths   := $(addprefix $(LLVMPALibDir)/,$(LLVMPAUsedLibs))
+endif
+
+ifdef POOLALLOCLIBS
+POOLALLOCLibsOptions := $(patsubst %.a.o, -l:%.a, $(addsuffix .o, $(POOLALLOCLIBS)))
+POOLALLOCLibsOptions := $(patsubst %.o, $(POOLALLOCLibDir)/%.o, $(POOLALLOCLibsOptions))
+POOLALLOCUsedLibs    := $(patsubst %.a.o, %.a, $(addsuffix .o, $(POOLALLOCLIBS)))
+POOLALLOCLibsPaths   := $(addprefix $(POOLALLOCLibDir)/,$(POOLALLOCUsedLibs))
 endif
 
 # Loadable module for Win32 requires all symbols resolved for linking.
@@ -1135,11 +1144,12 @@ SharedLibKindMessage := "Loadable Module"
 else
 SharedLibKindMessage := "Shared Library"
 endif
-$(LibName.SO): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths) $(SharedLibDir)/.dir
+$(LibName.SO): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths) $(POOLALLOCLibsPaths) $(SharedLibDir)/.dir
 	$(Echo) Linking $(BuildMode) $(SharedLibKindMessage) \
 	  $(notdir $@)
 	$(Verb) $(Link) $(SharedLinkOptions) -o $@ $(ObjectsO) \
-	  $(ProjLibsOptions) $(LLVMLibsOptions) $(LLVMPALibsOptions) $(LIBS)
+	  $(ProjLibsOptions) $(LLVMLibsOptions) $(LLVMPALibsOptions) \
+      $(POOLALLOCLibsOptions) $(LIBS)
 else
 $(LibName.SO): $(ObjectsO) $(SharedLibDir)/.dir
 	$(Echo) Linking $(BuildMode) Shared Library $(notdir $@)
@@ -1411,10 +1421,11 @@ else
 $(ToolBuildPath): $(ToolDir)/.dir
 endif
 
-$(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths)
+$(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths) $(LLVMPALibsPaths) $(POOLALLOCLibsPaths)
 	$(Echo) Linking $(BuildMode) executable $(TOOLNAME) $(StripWarnMsg)
 	$(Verb) $(Link) -o $@ $(TOOLLINKOPTS) $(ObjectsO) $(ProjLibsOptions) \
-	$(LLVMLibsOptions) $(LLVMPALibsOptions) $(ExtraLibs) $(TOOLLINKOPTSB) \
+	$(LLVMLibsOptions) $(LLVMPALibsOptions) $(POOLALLOCLibsOptions) \
+    $(ExtraLibs) $(TOOLLINKOPTSB) \
 	$(LIBS)
 	$(Echo) ======= Finished Linking $(BuildMode) Executable $(TOOLNAME) \
           $(StripWarnMsg)
@@ -2228,6 +2239,8 @@ printvars::
 	$(Echo) "LLVM_OBJ_ROOT: " '$(LLVM_OBJ_ROOT)'
 	$(Echo) "LLVMPA_SRC_ROOT: " '$(LLVMPA_SRC_ROOT)'
 	$(Echo) "LLVMPA_OBJ_ROOT: " '$(LLVMPA_OBJ_ROOT)'
+	$(Echo) "POOLALLOC_SRC_ROOT: " '$(POOLALLOC_SRC_ROOT)'
+	$(Echo) "POOLALLOC_OBJ_ROOT: " '$(POOLALLOC_OBJ_ROOT)'
 	$(Echo) "PROJ_prefix  : " '$(PROJ_prefix)'
 	$(Echo) "PROJ_bindir  : " '$(PROJ_bindir)'
 	$(Echo) "PROJ_libdir  : " '$(PROJ_libdir)'
