@@ -149,6 +149,8 @@ public:
   /// These correspond to the interfaces defined in the AliasAnalysis class.
   void deleteValue(Value *V);
   void copyValue(Value *From, Value *To);
+
+  void setDSGraphsStolen() { DSGraphsStolen = true; }
 };
 
 // BasicDataStructures - The analysis is a dummy one -- all pointers can points

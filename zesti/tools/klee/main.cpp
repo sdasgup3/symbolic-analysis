@@ -1383,6 +1383,11 @@ applyAliasAnalysis(PassManager &passes, Module *m) {
 symbexchecks::SymbExChecksInterface *
 applyDSA(PassManager &passes, Module *m) {
   passes.add(new DataLayout(m));
+
+  TDDataStructures *TD = new TDDataStructures();
+  TD->setDSGraphsStolen();
+  passes.add(TD);
+
   symbexchecks::SymbExChecksInterface *aainterface =
     new symbexchecks::DSAChecksInterface();
   passes.add(aainterface);
