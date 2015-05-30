@@ -10,8 +10,10 @@ namespace symbexchecks {
 // DSA (Data Structure Analysis) pointer analysis.
 class DSAChecksInterface : public SymbExChecksInterface {
 private:
- llvm::DataStructures *Graphs;
+  llvm::DataStructures *Graphs;
  
+  llvm::DSGraph *getGraphForValue(const llvm::Value *V);
+
 public:
   static char ID;
   DSAChecksInterface() : SymbExChecksInterface(ID) {}

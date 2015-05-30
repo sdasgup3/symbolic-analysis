@@ -1383,8 +1383,6 @@ applyAliasAnalysis(PassManager &passes, Module *m) {
 symbexchecks::SymbExChecksInterface *
 applyDSA(PassManager &passes, Module *m) {
   passes.add(new DataLayout(m));
-  passes.add(new EQTDDataStructures()); 
-
   symbexchecks::SymbExChecksInterface *aainterface =
     new symbexchecks::DSAChecksInterface();
   passes.add(aainterface);
