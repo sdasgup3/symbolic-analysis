@@ -11,6 +11,8 @@ entry:
   %int_2 = ptrtoint i8** %argv to i64
   %ptr_1 = inttoptr i64 %int_1 to i8*
   %ptr_2 = inttoptr i64 %int_2 to i8*
+  %0 = load i8* %ptr_1, align 4
+  %1 = load i8* %ptr_2, align 4
   ; %ptr_1 = bitcast i8** %argv to i8*
   ; %ptr_2 = bitcast i8** %argv to i8*
   call void @foo(i8* %ptr_1, i8* %ptr_2)
