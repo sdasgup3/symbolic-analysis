@@ -22,16 +22,18 @@ entry:
   store i32 %argc, i32* %argc.addr, align 4
   store i8** %argv, i8*** %argv.addr, align 8
   store i32 0, i32* %data, align 4
+  %0 = bitcast i32* %data to i8*
+  call void @klee_make_symbolic(i8* %0, i64 4, i8* getelementptr inbounds ([15 x i8]* @.str, i32 0, i32 0))
   %call = call i32 @pthread_key_create(i32* @key, void (i8*)* null) nounwind
-  %0 = load i32* @key, align 4
-  %1 = bitcast i32* %data to i8*
-  %call1 = call i32 @pthread_setspecific(i32 %0, i8* %1) nounwind ; HERE 
-  %2 = load i32* @key, align 4
-  %call2 = call i8* @pthread_getspecific(i32 %2) nounwind         ; HERE
-  %3 = bitcast i8* %call2 to i32*
-  store i32* %3, i32** %data2, align 8
-  %4 = load i32** %data2, align 8
-  %cmp = icmp eq i32* %data, %4
+  %1 = load i32* @key, align 4
+  %2 = bitcast i32* %data to i8*
+  %call1 = call i32 @pthread_setspecific(i32 %1, i8* %2) nounwind ; HERE 
+  %3 = load i32* @key, align 4
+  %call2 = call i8* @pthread_getspecific(i32 %3) nounwind         ; HERE
+  %4 = bitcast i8* %call2 to i32*
+  store i32* %4, i32** %data2, align 8
+  %5 = load i32** %data2, align 8
+  %cmp = icmp eq i32* %data, %5
   br i1 %cmp, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %entry
@@ -54,3 +56,5 @@ declare i32 @pthread_setspecific(i32, i8*) nounwind
 declare i8* @pthread_getspecific(i32) nounwind
 
 declare void @__assert_fail(i8*, i8*, i32, i8*) noreturn nounwind
+
+declare void @klee_make_symbolic(i8*, i64, i8*)
