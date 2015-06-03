@@ -220,6 +220,12 @@ namespace {
   PerformAliasAnalysisChecks("aachecks",
                              cl::desc("Perform alias/pointer analysis checks."),
                              cl::init(0));
+
+  cl::opt<bool>
+  EnableDSAAliasAnalysis("dsa",
+                             cl::desc("Enable interfacing zesti with DSA alias/pointer analysis."),
+                             cl::init(0));
+                             
 }
 
 extern cl::opt<double> MaxTime;
@@ -1679,10 +1685,16 @@ int main(int argc, char **argv, char **envp) {
   // Apply the specified alias/pointer analysis and provide the
   // interpreter with the interface object, that will be used for
   // checking
-  PassManager DSAPasses;
+  PassManager Passes;
   if (PerformAliasAnalysisChecks) {
-    symbexchecks::SymbExChecksInterface *aainterface =
-      applyDSA(DSAPasses, mainModule);
+    symbexchecks::SymbExChecksInterface *aainterface;
+   
+    if(EnableDSAAliasAnalysis) {
+      aainterface = applyDSA(Passes, mainModule);
+    } else {
+      aainterface = applyAliasAnalysis(Passes, mainModule);
+    }
+
     if (!aainterface)
       klee_error("Unable to apply requested pointer/alias analysis");
     interpreter->setAliasAnalysisResult(aainterface);
