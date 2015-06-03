@@ -18,9 +18,11 @@ entry:
   %1 = load i8** %argv, align 8, !tbaa !0
   %arrayidx1 = getelementptr inbounds i8** %argv, i64 1
   %2 = load i8** %arrayidx1, align 8, !tbaa !0
-  %call.i = tail call i64 @strtol(i8* nocapture %2, i8** null, i32 10) nounwind
-  %conv.i = trunc i64 %call.i to i32
-  %call2 = tail call i8* %0(i8* %1, i32 %conv.i) nounwind
+  ;%call.i = tail call i64 @strtol(i8* nocapture %2, i8** null, i32 10) nounwind
+  ;%conv.i = trunc i64 %call.i to i32
+  ;%call2 = tail call i8* %0(i8* %1, i32 %conv.i) nounwind
+  %call2 = tail call i8* %0(i8* %1, i32 0) nounwind
+  %3 = load i8* %call2, align 8
   %puts = tail call i32 @puts(i8* %call2)
   ret void
 }
