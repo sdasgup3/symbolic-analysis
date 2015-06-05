@@ -1,1 +1,1 @@
-cscope lib/Core/*.* include/klee/*.h include/klee/Internal/Module/*.h include/klee/Internal/ADT/* lib/Module/* tools/klee/main.cpp include/klee/Config/*.h lib/Support/* lib/Expr/* include/symbexchecks/* lib/SymbExChecks/*
+cscope lib/Core/*.* include/klee/*.h include/klee/Internal/Module/*.h include/klee/Internal/ADT/* lib/Module/* tools/klee/main.cpp include/klee/Config/*.h lib/Support/* lib/Expr/* include/symbexchecks/* lib/SymbExChecks/* runtime/Intrinsic/*
