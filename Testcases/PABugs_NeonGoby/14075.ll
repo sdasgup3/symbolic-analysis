@@ -16,7 +16,7 @@ entry:
   %retval = alloca i32, align 4
   %argc.addr = alloca i32, align 4
   %argv.addr = alloca i8**, align 8
-  %data = alloca i32, align 4
+  %data = alloca i32, align 4                                   ; HERE
   %data2 = alloca i32*, align 8
   store i32 0, i32* %retval
   store i32 %argc, i32* %argc.addr, align 4
@@ -27,14 +27,14 @@ entry:
   %call = call i32 @pthread_key_create(i32* @key, void (i8*)* null) nounwind
   %1 = load i32* @key, align 4
   %2 = bitcast i32* %data to i8*
-  %call1 = call i32 @pthread_setspecific(i32 %1, i8* %2) nounwind ; HERE 
+  %call1 = call i32 @pthread_setspecific(i32 %1, i8* %2) nounwind ; %data passed as argument 
   %3 = load i32* @key, align 4
-  %call2 = call i8* @pthread_getspecific(i32 %3) nounwind         ; HERE
+  %call2 = call i8* @pthread_getspecific(i32 %3) nounwind         ; call2 should to aliased with %data
   %4 = bitcast i8* %call2 to i32*
   store i32* %4, i32** %data2, align 8
   %5 = load i32** %data2, align 8
   %cmp = icmp eq i32* %data, %5
-  %6 = load i8* %call2
+  %6 = load i8* %call2                                            ; load added to have the pointer analysis check     
   br i1 %cmp, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %entry
