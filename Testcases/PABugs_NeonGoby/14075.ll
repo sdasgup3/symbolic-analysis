@@ -34,6 +34,7 @@ entry:
   store i32* %4, i32** %data2, align 8
   %5 = load i32** %data2, align 8
   %cmp = icmp eq i32* %data, %5
+  %6 = load i8* %call2
   br i1 %cmp, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %entry
