@@ -82,7 +82,7 @@ init_switches (void)
         /* The option is disabled. */
         continue;
 
-      printf("%c",*(opt->long_name));
+      printf("%c",*(opt->long_name));       ; Added load to enable pointer analysis checks
       longopt = &long_options[o++];
       longopt->name = opt->long_name;
       longopt->val = i;
