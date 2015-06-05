@@ -82,6 +82,7 @@ init_switches (void)
         /* The option is disabled. */
         continue;
 
+      printf("%c",*(opt->long_name));
       longopt = &long_options[o++];
       longopt->name = opt->long_name;
       longopt->val = i;
