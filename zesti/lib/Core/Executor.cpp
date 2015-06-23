@@ -2337,9 +2337,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
       //dumpExpr("getelemptr added condition: ", base);
       //dumpExpr("getelemptr added condition: ", boundsCheck);
-      if (!boundsCheck->isFalse())
+      if (!boundsCheck.isNull() && !boundsCheck->isFalse())
         state.addConstraint(boundsCheck);
-      else
+      else if (!boundsCheckPlus1.isNull())
         state.addConstraint(boundsCheckPlus1);
     }
 
