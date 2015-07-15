@@ -176,10 +176,6 @@ instrumented with enable_seeding intrinsic calls."));
 			cl::desc("Allow calls with symbolic arguments to external functions.  This concretizes the symbolic arguments.  (default=off)"));
 
   cl::opt<bool>
-  DebugPrintInstructions("debug-print-instructions", 
-                         cl::desc("Print instructions during execution."));
-
-  cl::opt<bool>
   DebugPrintAAChecks("debug-print-aachecks", 
                          cl::desc("Print debug information about aachecks."));
 
@@ -1406,7 +1402,7 @@ void Executor::executeGetValue(ExecutionState &state,
 }
 
 void Executor::stepInstruction(ExecutionState &state) {
-  if (DebugPrintInstructions) {
+  if (DebugPrintAAChecks) {
     printFileLine(state, state.pc);
     std::cerr << std::setw(10) << stats::instructions << " ";
     llvm::errs() << *(state.pc->inst);
@@ -2339,7 +2335,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       //dumpExpr("getelemptr added condition: ", boundsCheck);
       if (!boundsCheck.isNull() && !boundsCheck->isFalse())
         state.addConstraint(boundsCheck);
-      else if (!boundsCheckPlus1.isNull())
+      else if (!boundsCheckPlus1.isNull() && !boundsCheckPlus1->isFalse())
         state.addConstraint(boundsCheckPlus1);
     }
 
@@ -2988,9 +2984,10 @@ void Executor::run(ExecutionState &initialState) {
   }
 
  search:
-  if(DebugPrintInstructions) {
+  if(DebugPrintAAChecks) {
     klee_message("\n\nSearch Begin: states size %d", (int)states.size());
   }
+
   searcher = constructUserSearcher(*this);
   // klee timers have 0.1s resolution, unsuitable for inst execution time
   double stateStartTime, stateEndTime;
@@ -3592,7 +3589,7 @@ void Executor::resolveExact(ExecutionState &state,
 
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
-  if(DebugPrintInstructions) {
+  if(DebugPrintAAChecks) {
     llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
   }
   if (Concolic == stage)
@@ -3630,6 +3627,14 @@ void Executor::pointerChecker(ExecutionState &state, ref<Expr> address, KInstruc
   // foundTargets set
   for (ResolutionList::iterator i = rl.begin(), ie = rl.end(); i != ie; ++i) {
     const MemoryObject *mo = i->first;
+
+    if(NULL == mo->allocSite) {
+      if (DebugPrintAAChecks) {
+          klee_message("AACHECKS: Allocationsite null.. Skipping adding this to the found targets..");
+      }
+      continue;
+    }
+
 
     if (DebugPrintAAChecks) {
       std::string alloc_site_str;
