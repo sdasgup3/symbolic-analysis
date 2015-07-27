@@ -14,7 +14,7 @@ ZESTILIB=$(HOME)/Documents/klee-zesti/zesti.obj/Release+Asserts/lib
 ZESTI=$(HOME)/Documents/klee-zesti/zesti.obj/Release+Asserts/bin/klee
 ZESTIOPTIONS=--zest --use-symbex=2 --symbex-for=10 \
              --search=zest --zest-search-heuristic=br \
-             --zest-discard-far-states=false
+             --zest-discard-far-states=false #--libc=uclibc --posix-runtime
 KLEELIB=$(HOME)/Documents/klee-zesti/klee.obj/Release+Asserts/lib
 KLEE=$(HOME)/Documents/klee-zesti/klee.obj/Release+Asserts/bin/klee
 KLEEOPTIONS=--simplify-sym-indices --write-cvcs --write-cov --output-module \
@@ -31,6 +31,8 @@ KLEEOPTIONS=--simplify-sym-indices --write-cvcs --write-cov --output-module \
             --randomize-fork --search=random-path --search=nurs:covnew \
             --use-batching-search --batch-instructions=10000
 STDIN_FILENAME=/dev/null
+PRINT_OPTION=--debug-print-aachecks
+RUN_OPTIONS=
 
 %: %.c
 	$(CLANG) -O0 -emit-llvm  $(CPPFLAGS)   -c $< -o $@.unopt.bc
@@ -70,8 +72,8 @@ clean ::
 	rm -f  *-check *.graph *.graph.txt *.o
 
 
-runzesti: 
-	$(ZESTI) $(ZESTIOPTIONS) ./$< $(RUN_OPTIONS) < $(STDIN_FILENAME)
+%-runzesti: %.bc 
+	$(ZESTI) $(ZESTIOPTIONS) $(PRINT_OPTION) ./$< $(RUN_OPTIONS) < $(STDIN_FILENAME)
 	clang -L$(ZESTILIB) -Wl,-rpath,$(ZESTILIB) -o $<.klee $< -lkleeRuntest
 
 %-runchecks: %.bc
@@ -79,7 +81,7 @@ runzesti:
 	clang -L$(ZESTILIB) -Wl,-rpath,$(ZESTILIB) -o $<.klee $< -lkleeRuntest
 
 %-rundsachecks: %.bc
-	$(ZESTI) $(ZESTIOPTIONS) --aachecks --dsa  ./$< $(RUN_OPTIONS) < $(STDIN_FILENAME)
+	$(ZESTI) $(ZESTIOPTIONS) --aachecks --dsa $(PRINT_OPTION)   ./$< $(RUN_OPTIONS) < $(STDIN_FILENAME)
 	clang -L$(ZESTILIB) -Wl,-rpath,$(ZESTILIB) -o $<.klee $< -lkleeRuntest
 
 runklee: 
