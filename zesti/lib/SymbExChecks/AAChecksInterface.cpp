@@ -7,6 +7,8 @@ using namespace llvm;
 using std::map;
 using std::string;
 
+#include <llvm/Support/raw_ostream.h>
+
 namespace symbexchecks {
 
 // Helper functions
@@ -54,6 +56,9 @@ bool AAChecksInterface::runOnModule(Module &M) {
   // initialization
   AA = &getAnalysis<AliasAnalysis>();
   interprocQueries = InterprocQueries;
+  Visitor.visit(M);
+
+  Visitor.printPointers(errs());
 
   // does not modify module.
   return false;
