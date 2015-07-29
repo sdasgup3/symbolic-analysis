@@ -44,8 +44,9 @@ public:
   SymbExChecksInterface() : llvm::ModulePass(ID) {}
   SymbExChecksInterface(char &id) : llvm::ModulePass(id) {}
 
-  // Alias query for two given values. Should be implemented by the subclasses.
+  // Alias queries for two given values. Should be implemented by the subclasses.
   virtual bool mayAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
+  virtual bool mustAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
 
 };
 

@@ -58,7 +58,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
   interprocQueries = InterprocQueries;
   Visitor.visit(M);
 
-  Visitor.printPointers(errs());
+  //Visitor.printPointers(errs());
 
   // does not modify module.
   return false;
@@ -71,6 +71,16 @@ bool AAChecksInterface::mayAlias(const llvm::Value *V1, const llvm::Value *V2) {
     return true;
 
   return AA->alias(V1, V2);
+}
+
+bool AAChecksInterface::mustAlias(const llvm::Value *V1, const llvm::Value *V2) {
+  // If interprocedural queries are not allowed we have to assume that
+  // pointers from different functions do not have to allias 
+  if (!interprocQueries && differentParent(V1, V2))
+    return false;
+
+  AliasAnalysis::AliasResult res = AA->alias(V1, V2);
+  return res == AliasAnalysis::PartialAlias || res == AliasAnalysis::MustAlias;
 }
 
 }
