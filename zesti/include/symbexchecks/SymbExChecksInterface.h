@@ -11,17 +11,15 @@
 namespace symbexchecks {
 
 // A visitor class that will collect all pointer instructions. 
-class SymbExChecksVisitor : public llvm::InstVisitor<SymbExChecksVisitor> {
+class PointerCollector : public llvm::InstVisitor<PointerCollector> {
 public:
-  typedef llvm::SmallPtrSet<llvm::Value*, 256> PointerSet;
-  typedef llvm::ValueMap<llvm::Function*, PointerSet> PointerMap;
+  typedef llvm::SmallPtrSet<const llvm::Value*, 256> PointerSet;
+  typedef llvm::ValueMap<const llvm::Function*, PointerSet> PointerMap;
 
-private:
   PointerMap Pointers;
   llvm::Module *llvmModule;
 
-public:
-  SymbExChecksVisitor(void);
+  PointerCollector(void);
   void visitModule(llvm::Module &M);
   void visitFunction(llvm::Function &F);
   void visitInstruction(llvm::Instruction &I);
@@ -37,7 +35,7 @@ private:
 // interface should be provided for each pointer analysis pass to be checked.
 class SymbExChecksInterface : public llvm::ModulePass {
 protected:
-  SymbExChecksVisitor Visitor;
+  PointerCollector Collector;
   
 public:
   static char ID;
@@ -48,6 +46,9 @@ public:
   virtual bool mayAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
   virtual bool mustAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
 
+  // Accessors for the visitor.
+  const PointerCollector::PointerSet &
+  getPointerSetForFunction(const llvm::Function *F);
 };
 
 }

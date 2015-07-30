@@ -566,7 +566,8 @@ KFunction::KFunction(llvm::Function *_function,
         ki = new KInstruction(); break;
       }
 
-      ki->inst = it;      
+      ki->inst = it;     
+      instToKInstMap[it] = ki; 
       ki->dest = registerMap[it];
 
       if (isa<CallInst>(it) || isa<InvokeInst>(it)) {

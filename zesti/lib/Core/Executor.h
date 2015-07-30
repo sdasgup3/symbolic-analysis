@@ -281,8 +281,10 @@ private:
                               ref<Expr> value /* undef if read */,
                               KInstruction *target /* undef if write */);
 
-  void pointerChecker(ExecutionState &state, ref<Expr> address, KInstruction *target, ResolutionList rl);
-
+  void pointerChecker(ExecutionState &state, ref<Expr> address,
+                      KInstruction *target, ResolutionList rl);
+  void aliasChecker(ExecutionState &state, ref<Expr> address,
+                    KInstruction *target, ResolutionList rl);
 
   void executeMakeSymbolic(ExecutionState &state, const MemoryObject *mo,
                            const std::string &name);

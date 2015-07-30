@@ -56,9 +56,9 @@ bool AAChecksInterface::runOnModule(Module &M) {
   // initialization
   AA = &getAnalysis<AliasAnalysis>();
   interprocQueries = InterprocQueries;
-  Visitor.visit(M);
+  Collector.visit(M);
 
-  //Visitor.printPointers(errs());
+  //Collector.printPointers(errs());
 
   // does not modify module.
   return false;
