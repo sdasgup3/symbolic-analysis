@@ -50,6 +50,8 @@ namespace klee {
 
     std::map<llvm::BasicBlock*, unsigned> basicBlockEntry;
 
+    std::map<const llvm::Instruction*, KInstruction*> instToKInstMap;
+
     /// Whether instructions in this function should count as
     /// "coverable" for statistics and search heuristics.
     bool trackCoverage;
