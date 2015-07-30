@@ -1,32 +1,28 @@
 #include"klee.h"
-#include <stdio.h>
+#include <stdlib.h>
 
    typedef struct {
          int x;
          int *y;
-           }ptType;
-
-   typedef struct {
-         int x;
-         ptType y;
            }stType;
 
   stType z;
 
 int foo(int x) {
-    if(z.y.x == 0) {
+    if(z.x == 0) {
       x ++;
     }  else {
       x--;
     }
     
-  return x + *(z.y.y);
+  return x + *(z.y);
 }
 
 
 int main(int argc, char** argv) {
   int x = 0;
-  z.y.y = (int *) malloc(sizeof(int));
+  klee_make_symbolic(&z, sizeof(z), "");
+  z.y = (int*) malloc(sizeof(int));
     return foo(x);
 }
         
