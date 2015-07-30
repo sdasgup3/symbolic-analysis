@@ -88,4 +88,9 @@ DSAChecksInterface::mayAlias(const llvm::Value *V1, const llvm::Value *V2) {
   return true;
 }
 
+bool
+DSAChecksInterface::mustAlias(const llvm::Value *V1, const llvm::Value *V2) {
+  return false;
+}
+
 }
