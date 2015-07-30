@@ -24,6 +24,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
+
 
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
@@ -221,6 +223,10 @@ namespace {
                              cl::desc("Perform alias/pointer analysis checks."),
                              cl::init(0));
 
+  cl::opt<bool>
+  MakeGVSymbolic("make-gv-sym",
+                             cl::desc("Make Globals Symbolic. Need to supply 'aachecks' flag in addition to this."),
+                             cl::init(0));
   cl::opt<bool>
   EnableDSAAliasAnalysis("dsa",
                              cl::desc("Enable interfacing zesti with DSA alias/pointer analysis."),
@@ -1281,6 +1287,97 @@ static llvm::Module* MakeArgsSymbolic(llvm::Module *mainModule)
 	return mainModule;
 }
 
+/* Helps to find 
+ * 1. For a non-aggregate type, return true if its a pointer Type, Else false
+ * 2. For an aggregate type, recursively find out if any of its sub-element 
+ *    type is of pointer type. If yes, return true, Else false. 
+ */
+bool hasPointerType(Type* Ty) {
+
+  if(Ty->isPointerTy()) {
+    DEBUG(errs() << "Skipping for pointer type\n" );
+    return true;
+  }
+
+  if(Ty->isArrayTy()) {
+    Type* arrayElemTy  =  Ty->getArrayElementType();
+    DEBUG(errs() << "Checking for pointer type in Array\n" );
+    return hasPointerType(arrayElemTy);
+  }
+
+  if(Ty->isStructTy()) {
+    StructType *STy = dyn_cast<StructType>(Ty);
+    unsigned int numElemTy =  STy->getNumElements();
+    DEBUG(errs() << "Checking for pointer type in Struct\n" );
+
+    for(unsigned int  i = 0; i < numElemTy; i++ ) {
+      Type* structElemType = STy->getElementType(i);
+      if(true == hasPointerType(structElemType)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return false;
+}
+
+
+/* Add klee_make_symbolic calls for global variables.
+ * This reduces the effort of manually adding these calls.
+ */
+static llvm::Module* MakeGlobalsSymbolic(llvm::Module *mainModule)
+{
+  llvm::Function* mainFunc = mainModule->getFunction("__user_main");
+  if (!mainFunc) {
+    mainFunc = mainModule->getFunction("main");
+  }
+
+  DataLayout *TD = new DataLayout(mainModule);
+
+  //Find the definition of klee_make_symbolic
+  llvm::Type *i8Ty = Type::getInt8Ty(getGlobalContext());
+  Constant *fc = mainModule->getOrInsertFunction("klee_make_symbolic",  Type::getVoidTy(getGlobalContext()),
+                                                                  PointerType::getUnqual(i8Ty),
+                                                                  Type::getInt64Ty(getGlobalContext()),
+                                                                  PointerType::getUnqual(i8Ty), NULL);
+  Function* kleeMakeSymbolic = cast<Function>(fc);
+
+
+  for(Module::global_iterator IG = mainModule->global_begin(), EG = mainModule->global_end(); IG != EG ; IG++ ) {
+    GlobalVariable* gv = &*IG;
+
+
+    Type* g_type = gv->getType();
+    Type* g_eltype = g_type->getPointerElementType();
+    DEBUG(errs() << "Global Vars: " << *gv << " Type: " << *g_type << " Elel Type"<< *g_eltype <<"\n" );
+
+    // Ignore the global constant strings.
+    if(gv->isConstant() && g_eltype->isArrayTy() && g_eltype->getArrayElementType()->isIntOrIntVectorTy()) {
+      DEBUG(errs() << "Is Constant String" <<"\n" );
+      continue;
+    }
+
+    //For non aggregate type, check if the global is a pointer. If yes, ignore.
+    //For aggregate type, check if any of its members is a pointer of recursively 
+    //contain a pointer. If yes, ignore.
+    if(true == hasPointerType(g_eltype)) {
+      continue;
+    }
+
+    Type *VoidPtrTy = Type::getInt8PtrTy(getGlobalContext());
+    Value* castInst = new BitCastInst(gv, VoidPtrTy, gv->getName() + ".aachecks", ++(mainFunc->begin()->begin()));
+
+    std::vector<Value* > klee_args;
+    klee_args.push_back(castInst);
+    klee_args.push_back(ConstantInt::get(Type::getInt64Ty(getGlobalContext()), TD->getTypeAllocSize(g_eltype)));
+    klee_args.push_back(castInst);
+    CallInst::Create(kleeMakeSymbolic, klee_args, "",(++(++(mainFunc->begin()->begin()))));
+  }
+
+  return mainModule;
+}
+
 static const char *conflictingUclibc[] = {
   "socket",
   "bind",
@@ -1532,6 +1629,10 @@ int main(int argc, char **argv, char **envp) {
 
   if (UseConcretePath) {
     MakeArgsSymbolic(mainModule);
+  }
+
+  if(PerformAliasAnalysisChecks && MakeGVSymbolic) {
+    MakeGlobalsSymbolic(mainModule);
   }
 
   if (WithPOSIXRuntime) {
