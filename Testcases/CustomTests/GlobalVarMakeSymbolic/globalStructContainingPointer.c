@@ -1,5 +1,5 @@
 #include"klee.h"
-#include <stdio.h>
+#include <stdlib.h>
 
    typedef struct {
          int x;
@@ -9,7 +9,7 @@
   stType z;
 
 int foo(int x) {
-    if(z.y == 0) {
+    if(z.x == 0) {
       x ++;
     }  else {
       x--;
@@ -21,6 +21,7 @@ int foo(int x) {
 
 int main(int argc, char** argv) {
   int x = 0;
+  z.y = (int *) malloc(sizeof(int));
     return foo(x);
 }
         

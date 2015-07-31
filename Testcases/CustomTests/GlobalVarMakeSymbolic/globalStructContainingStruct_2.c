@@ -26,6 +26,7 @@ int foo(int x) {
 
 int main(int argc, char** argv) {
   int x = 0;
+  z.y = (ptType *) malloc(sizeof(ptType));
     return foo(x);
 }
         

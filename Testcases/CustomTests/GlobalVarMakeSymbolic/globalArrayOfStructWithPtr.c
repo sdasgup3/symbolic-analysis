@@ -15,12 +15,13 @@ int foo(int x) {
       x--;
     }
     
-  return x + (z[3].x);
+  return x + (*z[3].y);
 }
 
 
 int main(int argc, char** argv) {
   int x = 0;
+  z[3].y = (int *) malloc(sizeof(int));
     return foo(x);
 }
         
