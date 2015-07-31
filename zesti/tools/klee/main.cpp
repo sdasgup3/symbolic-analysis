@@ -1338,9 +1338,7 @@ static llvm::Module* MakeGlobalsSymbolic(llvm::Module *mainModule)
   //Find the definition of klee_make_symbolic
   llvm::Type *i8Ty = Type::getInt8Ty(getGlobalContext());
   Constant *fc = mainModule->getOrInsertFunction("klee_make_symbolic",  Type::getVoidTy(getGlobalContext()),
-                                                                  PointerType::getUnqual(i8Ty),
-                                                                  Type::getInt64Ty(getGlobalContext()),
-                                                                  PointerType::getUnqual(i8Ty), NULL);
+      PointerType::getUnqual(i8Ty), Type::getInt64Ty(getGlobalContext()), PointerType::getUnqual(i8Ty), NULL);
   Function* kleeMakeSymbolic = cast<Function>(fc);
 
 
@@ -1358,10 +1356,9 @@ static llvm::Module* MakeGlobalsSymbolic(llvm::Module *mainModule)
       continue;
     }
 
-    //For non aggregate type, check if the global is a pointer. If yes, ignore.
-    //For aggregate type, check if any of its members is a pointer of recursively 
-    //contain a pointer. If yes, ignore.
-    if(true == hasPointerType(g_eltype)) {
+    //Check if the global is a pointer. If yes, ignore.
+    if(true == g_eltype->isPointerTy()) {
+      DEBUG(errs() << "Skipping for pointer type\n" );
       continue;
     }
 
