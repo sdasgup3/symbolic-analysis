@@ -3828,14 +3828,18 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         }
       }
 
-      assert(foundBoth);
+      if (!foundBoth && DebugPrintAAChecks) {
+        klee_message("AACHECKS: The second pointer did not resolve to "
+                     "a memory object (maybe a function pointer).");
+        continue;
+      }
 
       if (checkSatisfied && DebugPrintAAChecks) {
         klee_message("AACHECKS: Check succeeded.");
       }
 
       if (!checkSatisfied) {
-        terminateStateOnError(state, "failed alias analysis check", "aachecks");
+        klee_message("AACHECKS: Failed alias analysis check!");
       }
     }
   }
