@@ -1402,12 +1402,12 @@ void Executor::executeGetValue(ExecutionState &state,
 }
 
 void Executor::stepInstruction(ExecutionState &state) {
-  if (DebugPrintAAChecks) {
+  //if (DebugPrintAAChecks) {
     printFileLine(state, state.pc);
     std::cerr << std::setw(10) << stats::instructions << " ";
     llvm::errs() << *(state.pc->inst);
     std::cerr << " \n";
-  }
+  //}
 
   if (statsTracker)
     statsTracker->stepInstruction(state);
@@ -3828,9 +3828,11 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         }
       }
 
-      if (!foundBoth && DebugPrintAAChecks) {
-        klee_message("AACHECKS: The second pointer did not resolve to "
+      if (!foundBoth) { 
+        if(DebugPrintAAChecks) {
+          klee_message("AACHECKS: The second pointer did not resolve to "
                      "a memory object (maybe a function pointer).");
+	}
         continue;
       }
 
@@ -3840,6 +3842,8 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
 
       if (!checkSatisfied) {
         klee_message("AACHECKS: Failed alias analysis check!");
+      	//terminateStateOnError(state, "AACHECKS: Failed alias analysis check",
+        //                    "aachecks");
       }
     }
   }
