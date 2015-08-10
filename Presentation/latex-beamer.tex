@@ -1,0 +1,171 @@
+%\documentclass{beamer}
+\documentclass[mathserif,10pt]{beamer}
+
+\usepackage{beamerthemesplit}
+\usepackage{graphics}
+\usepackage{epsfig}
+\usepackage{algorithm}
+\usepackage{verbatim}
+\usepackage{listings}
+\usepackage{framed}
+\usepackage{pstricks}
+\usepackage{pst-node,pst-tree}
+\usepackage{pst-rel-points}
+\usepackage{flexiprogram}
+\usepackage[UKenglish]{babel}
+\usepackage{hyperref}
+\usepackage{pst-coil}
+\usepackage{color}
+\usepackage{epsfig}
+\usepackage{tikz}
+%\usepackage{multirow}
+
+\usefonttheme{serif}
+
+\newcommand{\cmt}[1]{}
+%\noindent
+
+\setcounter{tocdepth}{1}
+\lstset{language=[ANSI]C}
+\lstset{% general command to set parameter(s)
+  basicstyle=\footnotesize\tt, % print whole listing small
+    identifierstyle=, % nothing happens
+    commentstyle=\color{red}, % white comments
+    showstringspaces=false, % no special string spaces
+    lineskip=1pt,
+    captionpos=b,
+    frame=single,
+    breaklines=true
+      %\insertauthor[width={3cm},center,respectlinebreaks]
+}
+
+
+\setbeamercovered{transparent=50}
+
+\lstset{classoffset=0,
+  morekeywords={},keywordstyle=\color{black},
+  classoffset=1,
+  classoffset=0}% restore default
+
+  \usetheme{CambridgeUS}
+  \usecolortheme{dolphin}
+
+  \title[Bug Finding in Pointer Analysis]{Bug Finding in Pointer Analysis}
+  \author[]{{\textbf{Theodoros, Sandeep}} }
+  \begin{document}
+
+  \begin{frame}
+  \titlepage
+  \end{frame}
+  \usebeamertemplate{mytheme}
+
+  \AtBeginSection[]
+{
+  \begin{frame}<beamer>
+    \frametitle{Outline}
+  \tableofcontents[currentsection]
+    \end{frame}
+}
+
+\defverbatim[colored]\lstI{
+\begin{lstlisting}[language=C++,basicstyle=\ttfamily,keywordstyle=\color{red}]
+  int main() {
+    int x=1 , y=2;
+    int*  p = (int *)malloc(sizeof(int));
+
+    klee_make_symbolic(&x, sizeof(x), "x");
+    //klee_make_symbolic(&y, sizeof(y), "y");
+
+    if(0 != x*y) {
+      p = (int *)malloc(4);
+    } else {
+      if(y == 0) {
+        p = (int *)malloc(4);
+      }
+    }
+    return *p;
+  }
+
+\end{lstlisting}
+}
+
+\section{Implementation}
+\subsection{Symbolic Execution}
+\frame
+{
+  \frametitle{\subsecname}
+  \begin{itemize}
+    \item Symbolic execution using klee  
+    \item Migration from Klee to Zesti (a variant of klee) 
+    \cmt{
+      To mitigate the path explosion problem, ZESTI carefully chooses divergent
+        paths via two mechanisms: (1) it only diverges close to sensitive
+        instructions (memory accesses and divisions.), i.e instructions that
+        might contain a bug, and (2) it chooses the divergence points in order
+        of increasing distance from the sensitive instruction. The key idea
+        behind this approach is to exercise sensitive instructions on slightly
+        different paths, with the goal of triggering a bug if the respective
+        instructions contain one.  ZESTI identifies sensitive instructions
+        dynamically while running the concrete input.  
+    } 
+  \end{itemize} 
+}
+
+\subsection{Checker Logic}
+\frame
+{
+  \frametitle{\subsecname}
+  \begin{itemize}
+    \item Instrumenting the code to add checks. 
+    \item Incorporating the checker logic in zesti.
+    \cmt{
+    This prevents zesti from interpreting the checker code (as now the checker code will be a part of the symbolic execution engine). 
+    With this the run time performance is expected to improve.
+      To mitigate the path explosion problem, ZESTI carefully chooses divergent
+        paths via two mechanisms: (1) it only diverges close to sensitive
+        instructions (memory accesses and divisions.), i.e instructions that
+        might contain a bug, and (2) it chooses the divergence points in order
+        of increasing distance from the sensitive instruction. The key idea
+        behind this approach is to exercise sensitive instructions on slightly
+        different paths, with the goal of triggering a bug if the respective
+        instructions contain one.  ZESTI identifies sensitive instructions
+        dynamically while running the concrete input.  
+    } 
+  \end{itemize} 
+}
+
+\subsection{Implicit klee\_assumes}
+\frame
+{
+  \frametitle{\subsecname}
+
+}
+
+\subsection{Which variable to make symbolic}
+\frame
+{
+  \frametitle{\subsecname}
+
+}
+
+\subsection{Making Input variable symbolic}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstI
+
+}
+
+\subsection{Testing}
+\frame
+{
+  \frametitle{\subsecname}
+
+}
+
+\section{Questions?}
+\subsection{Questions?}
+\frame
+{}
+
+\end{document}

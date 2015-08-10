@@ -1,0 +1,59 @@
+%%%%    Support for relative coordinates for use in pstricks.
+%%%%    Developed by Uday Khedker (uday@cse.iitb.ac.in)
+%%%%    Thu Sep  4 18:45:47 IST 2003
+%%%%    User can use 
+%%%%    NEW COMMAND ADDED LATER ON mON APR 17 13:11:00 IST 2006
+%%%%    
+%%%%    	\putnode{newnode}{oldnode}{deltax}{deltay}{stuffToTypeSet}
+%%%%    
+%%%%    For better control on the distances, please set unit to 1 mm (\psset{unit=1mm}) 
+%%%%    
+%%%%    This make the following commands obsolete.   
+%%%%    FOLLOWING OLD COMMENDS CAN STILL BE USED.
+%%%%    Declaration psrelpoint{point1}{point2}{deltax}{deltay} where deltax and deltay are integers.
+%%%%    The effect is that the x coordinates of point2 = x coordinate of point1 + delta x
+%%%%                           y coordinates of point2 = y coordinate of point1 + delta y
+%%%%    If point1 is omitted, deltax and deltay are assumed to be 0.
+%%%%    Alternative, point "origin" can be used for initial values 0,0.
+%%%%
+%%%%    The coordinates of a point can be extracted by using \cx{point} and \cy{point} and
+%%%%    can be used in any place where coordinates are required.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcounter{xcoordinate}
+\newcounter{ycoordinate}
+\newcounter{originxcoordinate}
+\newcounter{originycoordinate}
+\def\@psreldefinecounter#1{
+  \@ifundefined{c@#1}{% 
+\expandafter\newcount\csname c@#1\endcsname
+     \setcounter{#1}\z@
+     \global\expandafter\let\csname cl@#1\endcsname\@empty
+     \@addtoreset{#1}{@ckpt}%
+     \global\expandafter\let\csname p@#1\endcsname\@empty
+     \expandafter
+     \gdef\csname the#1\expandafter\endcsname\expandafter
+          {\expandafter\@arabic\csname c@#1\endcsname}}{}}
+\def\@psrelnewcounter#1{%
+  %\expandafter\@ifdefinable \csname c@#1\endcsname
+  %%%%%%%%%%%%% The above check eliminated and inserted as
+  %%%%%%%%%%%%% ifundefined check in command definecounter
+    {\@psreldefinecounter{#1}}%
+  \@ifnextchar[{\@newctr{#1}}{}}
+\def\psrelpoint#1#2#3#4{
+\ifx#1#2%
+\addtocounter{#2xcoordinate}{#3}\addtocounter{#2ycoordinate}{#4}% 
+\else%
+\@psrelnewcounter{#2xcoordinate}\@psrelnewcounter{#2ycoordinate}%
+\setcounter{#2xcoordinate}{\value{#1xcoordinate}}\addtocounter{#2xcoordinate}{#3}%
+\setcounter{#2ycoordinate}{\value{#1ycoordinate}}\addtocounter{#2ycoordinate}{#4}% 
+\fi%
+}
+\newcommand{\cx}[1]{\value{#1xcoordinate}}
+\newcommand{\cy}[1]{\value{#1ycoordinate}}
+%\newcommand{\samepar}[2]{\ifx#1#2\string Paramters are same\else\string Paramters are different\fi}
+\newcommand{\putnode}[5]{
+%#1: node, #2: pred, #3: dx, #4: dy, #5: stuff
+\psrelpoint{#2}{#1}{#3}{#4}
+\rput(\cx{#1},\cy{#1}){\rnode{#1}{#5}}
+}
+
