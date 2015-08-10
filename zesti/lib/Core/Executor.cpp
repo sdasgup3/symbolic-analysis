@@ -1403,10 +1403,10 @@ void Executor::executeGetValue(ExecutionState &state,
 
 void Executor::stepInstruction(ExecutionState &state) {
   //if (DebugPrintAAChecks) {
-    printFileLine(state, state.pc);
-    std::cerr << std::setw(10) << stats::instructions << " ";
-    llvm::errs() << *(state.pc->inst);
-    std::cerr << " \n";
+  //  printFileLine(state, state.pc);
+  //  std::cerr << std::setw(10) << stats::instructions << " ";
+  //  llvm::errs() << *(state.pc->inst);
+  //  std::cerr << " \n";
   //}
 
   if (statsTracker)
@@ -3734,16 +3734,16 @@ void
 Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
                        KInstruction *target, ResolutionList rl)
 {
+  std::string error_msg;
+  llvm::raw_string_ostream rso(error_msg);
+
   // Get the LLVM value for the dereferenced pointer.
   const Value *base =
     dyn_cast<LoadInst>(target->inst)->getPointerOperand();
 
   if (DebugPrintAAChecks) {
-    std::string base_str;
-    llvm::raw_string_ostream rso_base(base_str);
-    base->print(rso_base);
-    klee_message("AACHECKS: Performing alias checks for the "
-                 "dereferenced pointer %s:", rso_base.str().c_str());
+    rso << "AACHECKS: Performing alias checks for the "
+           "dereferenced pointer " << *base << "\n";
   }
 
   // Get all the pointers in the parent function.
@@ -3764,11 +3764,9 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
     bool mayNotAlias = !aainterface->mayAlias(base, ptr);
 
     if (mustAlias && mayNotAlias) {
-      std::string msg_str;
-      llvm::raw_string_ostream rso_msg(msg_str);
-      rso_msg << "Alias analysis internal error: " << *base << " and " <<
-                 *ptr << " must alias and may not alias at the same time!";
-      terminateStateOnError(state, rso_msg.str().c_str(), "aachecks");
+      rso << "Alias analysis internal error: " << *base << " and " <<
+             *ptr << " must alias and may not alias at the same time!\n";
+      terminateStateOnError(state, rso.str().c_str(), "aachecks");
     }
 
     // Only check when the analysis actually provides alias information.
@@ -3804,9 +3802,9 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         std::string ptr_str;
         llvm::raw_string_ostream rso_ptr(ptr_str);
         ptr->print(rso_ptr);
-        klee_message("AACHECKS: The dereferenced pointer %s alias with the "
-                     "pointer %s. Checking ...",
-                     mustAlias ? "must" : "may not", rso_ptr.str().c_str());
+        rso << "AACHECKS: The dereferenced pointer " <<
+               (mustAlias ? "must" : "may not") <<
+               " alias with the pointer " << *ptr << ". Checking ...\n";
       }
 
       // Perform the checks.
@@ -3830,20 +3828,20 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
 
       if (!foundBoth) { 
         if(DebugPrintAAChecks) {
-          klee_message("AACHECKS: The second pointer did not resolve to "
-                     "a memory object (maybe a function pointer).");
-	}
+          rso << "AACHECKS: The second pointer did not resolve to "
+                 "a memory object (maybe a function pointer).\n";
+        }
         continue;
       }
 
       if (checkSatisfied && DebugPrintAAChecks) {
-        klee_message("AACHECKS: Check succeeded.");
+        rso << "AACHECKS: Check succeeded.\n";
       }
 
       if (!checkSatisfied) {
-        klee_message("AACHECKS: Failed alias analysis check!");
-      	//terminateStateOnError(state, "AACHECKS: Failed alias analysis check",
-        //                    "aachecks");
+        rso << "AACHECKS: Failed alias analysis check!\n";
+        klee_message(rso.str().c_str());
+      	//terminateStateOnError(state, rso.str().c_str(), "aachecks");
       }
     }
   }
