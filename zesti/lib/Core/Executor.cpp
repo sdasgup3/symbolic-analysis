@@ -1403,10 +1403,10 @@ void Executor::executeGetValue(ExecutionState &state,
 
 void Executor::stepInstruction(ExecutionState &state) {
   //if (DebugPrintAAChecks) {
-  //  printFileLine(state, state.pc);
-  //  std::cerr << std::setw(10) << stats::instructions << " ";
-  //  llvm::errs() << *(state.pc->inst);
-  //  std::cerr << " \n";
+  //printFileLine(state, state.pc);
+  //std::cerr << std::setw(10) << stats::instructions << " ";
+  //llvm::errs() << *(state.pc->inst);
+  ////std::cerr << " \n";
   //}
 
   if (statsTracker)
@@ -3589,9 +3589,9 @@ void Executor::resolveExact(ExecutionState &state,
 
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
-  if(DebugPrintAAChecks) {
-    llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
-  }
+  //if(DebugPrintAAChecks) {
+  // llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
+  //}
   if (Concolic == stage)
     return;
   if (ZESTSearchHeuristic == Instructions) {
@@ -3734,17 +3734,16 @@ void
 Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
                        KInstruction *target, ResolutionList rl)
 {
-  std::string error_msg;
-  llvm::raw_string_ostream rso(error_msg);
 
   // Get the LLVM value for the dereferenced pointer.
   const Value *base =
     dyn_cast<LoadInst>(target->inst)->getPointerOperand();
 
-  if (DebugPrintAAChecks) {
-    rso << "AACHECKS: Performing alias checks for the "
-           "dereferenced pointer " << *base << "\n";
-  }
+  std::string base_str;
+  llvm::raw_string_ostream rso_base(base_str);
+
+  rso_base << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
+  rso_base << "AACHECKS: Performing alias checks for the dereferenced pointer" << *(base) << "\n";
 
   // Get all the pointers in the parent function.
   Function *parentFunc =
@@ -3758,6 +3757,9 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
     it = Pointers.begin(), itEnd = Pointers.end();
   for (; it != itEnd; ++it) {
     const Value *ptr = *it;
+
+    std::string error_msg;
+    llvm::raw_string_ostream rso(error_msg);
 
     // Consult the alias analysis.
     bool mustAlias = aainterface->mustAlias(base, ptr);
@@ -3798,14 +3800,9 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
       }
       solver->setTimeout(0);
 
-      if (DebugPrintAAChecks) {
-        std::string ptr_str;
-        llvm::raw_string_ostream rso_ptr(ptr_str);
-        ptr->print(rso_ptr);
-        rso << "AACHECKS: The dereferenced pointer " <<
-               (mustAlias ? "must" : "may not") <<
-               " alias with the pointer " << *ptr << ". Checking ...\n";
-      }
+      rso << "AACHECKS: The dereferenced pointer " <<
+        (mustAlias ? "must" : "may not") <<
+        " alias with the pointer " << *ptr << ". Checking ...\n";
 
       // Perform the checks.
       bool checkSatisfied = false;
@@ -3827,20 +3824,20 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
       }
 
       if (!foundBoth) { 
-        if(DebugPrintAAChecks) {
-          rso << "AACHECKS: The second pointer did not resolve to "
-                 "a memory object (maybe a function pointer).\n";
-        }
+        rso << "AACHECKS: The second pointer did not resolve to "
+               "a memory object (maybe a function pointer).\n";
         continue;
       }
 
-      if (checkSatisfied && DebugPrintAAChecks) {
+      if (checkSatisfied) {
         rso << "AACHECKS: Check succeeded.\n";
       }
 
       if (!checkSatisfied) {
         rso << "AACHECKS: Failed alias analysis check!\n";
-        klee_message(rso.str().c_str());
+
+        klee_message("%s", rso_base.str().c_str());
+        klee_message("%s", rso.str().c_str());
       	//terminateStateOnError(state, rso.str().c_str(), "aachecks");
       }
     }
