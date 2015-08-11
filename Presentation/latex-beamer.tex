@@ -68,7 +68,7 @@
 }
 
 \defverbatim[colored]\lstI{
-\begin{lstlisting}[language=C++,basicstyle=\ttfamily,keywordstyle=\color{red}]
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
   int main() {
     int x=1 , y=2;
     int*  p = (int *)malloc(sizeof(int));
@@ -86,6 +86,46 @@
     return *p;
   }
 
+\end{lstlisting}
+}
+
+\defverbatim[colored]\lstII{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  struct S {
+    int x, y; 
+  };
+  struct S data[] =
+  {
+    { 1,2 },
+    { 3,4 },
+  };
+  int main(int argc, char** argv) {
+
+  x= 0 ;
+  struct S* z;
+  
+  klee_make_symbolic(&x, sizeof(x), "X");
+  klee_assume(x >= 0 &  x <= 1 );
+  
+  z   = &data[x++];
+  ... = z->x ; 
+
+  return 0;
+}
+
+
+\end{lstlisting}
+}
+
+\defverbatim[colored]\algoCheckerIII{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  1. foreach load instructions
+      1.1. base address  = `base address` of the load
+      1.2. foreach `pointer` in the same function scope as the load instruction 
+          1.2.1. result = mustAlais_OR_mayNOTAlias(`base address`, `pointer`) // Querying the alias analysis.
+                1.2.1.1. if result ==  must-alias, check if `base pointer` and 'pointer' points to the same runtime memory object.
+                1.2.1.2. if result ==  mayNot-alias, check if `base pointer` and 'pointer' do not points to the same runtime memory object.
+                1.2.1.3. Otherwise, continue.
 \end{lstlisting}
 }
 
@@ -134,27 +174,58 @@
   \end{itemize} 
 }
 
+\subsection{Checker Logic - Revised}
+\frame
+{
+  \frametitle{\subsecname}
+  \algoCheckerIII
+}
+
 \subsection{Implicit klee\_assumes}
 \frame
 {
   \frametitle{\subsecname}
+  \lstII
+    \cmt{
+    Without the klee_assume, the dereference z->x may get resolved to many
+      spurious memory objects. But while dealing with pointer analysis results
+      we assume that the index of gptr is within bounds and as a result we are
+      getting false positives that (The set of allocation sites corresponding
+          to the memory object of the load address, z->x) is NOT a subset of
+      (Points to allocation sites for the load address z->x) 
+    }
 
 }
 
-\subsection{Which variable to make symbolic}
-\frame
-{
-  \frametitle{\subsecname}
-
-}
-
-\subsection{Making Input variable symbolic}
+\subsection{Importance of making a variable symbolic}
 \frame
 {
   \frametitle{\subsecname}
   \lstI
+  \cmt{
+    Rather that explicitly making the  inputs of the test program
+      symbolic, let klee instrument the code by inserting klee_make_symbolic
+      calls. The inputs that we are considering include command line arguments,
+      file inputs, globals and variables used to read inputs (for example using
+          scanf).
+  }
 
 }
+
+\subsection{Which variables to make symbolic}
+\frame
+{
+  \frametitle{\subsecname}
+  \begin{itemize}
+    \item explicitly specifying which variablies to make symbolic is difficult. 
+    \begin{itemize}
+      \item Klee Instruments the code by inserting appropriate klee\_make\_symbolic.
+      \item Rechability Analysis to figure out candidates.
+    \end{itemize}
+  \end{itemize}
+
+}
+
 
 \subsection{Testing}
 \frame
