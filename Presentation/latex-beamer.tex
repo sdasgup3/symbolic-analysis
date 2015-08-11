@@ -40,7 +40,7 @@
 }
 
 
-\setbeamercovered{transparent=50}
+\setbeamercovered{transparent}
 
 \lstset{classoffset=0,
   morekeywords={},keywordstyle=\color{black},
@@ -50,8 +50,8 @@
   \usetheme{CambridgeUS}
   \usecolortheme{dolphin}
 
-  \title[Bug Finding in Pointer Analysis]{Bug Finding in Pointer Analysis}
-  \author[]{{\textbf{Theodoros, Sandeep}} }
+  \title[Static Analysis Debugging with Symbolic Execution]{Static Analysis Debugging with Symbolic Execution}
+  \author[]{{\textbf{Theodoros Kasampalis, Sandeep Dasgupta}} }
   \begin{document}
 
   \begin{frame}
@@ -164,12 +164,104 @@
 \end{lstlisting}
 }
 
+\section{Static Analysis}
+\frame
+{
+  \frametitle{\secname}
+  \begin{itemize}[<+->]
+    \item Infer source code properties without execution
+    \item Examples:
+    \begin{itemize}
+      \item Pointer Analysis
+      \item Liveness Analysis
+    \end{itemize} 
+    \item Inferred properties true for any execution
+    \item Applications:
+    \begin{itemize}
+      \item Compilers
+      \item Security
+      \item Software Engineering
+    \end{itemize} 
+  \end{itemize} 
+}
+
+\section{Debugging a Static Analysis Implementation}
+\frame
+{
+  \frametitle{\secname}
+  \begin{itemize} [<+->]
+    \item Semantics bugs
+    \begin{itemize}
+      \item no crash
+      \item erroneous results
+    \end{itemize} 
+    \item Effect visible in client code
+    \begin{itemize}
+      \item Hard to trace back
+    \end{itemize} 
+    \item Static analysis specific tests
+    \begin{itemize}
+      \item small regression tests
+    \end{itemize} 
+  \end{itemize} 
+}
+
+\section{Related Work}
+\frame
+{
+  \frametitle{\secname}
+  \begin{itemize} [<+->]
+    \item Compiler testing through miscompilation detection:
+    \begin{itemize}
+      \item Regression test suites (LLVM test suite)
+      \item Randomly generated tests (Csmith, PLDI 11)
+      \item Equivalence Modulo Inputs (Orion, PLDI 14)
+    \end{itemize} 
+    \item Dynamic alias analysis error detection (NeonGoby, FSE 13)
+
+    \item Symbolic execution (KLEE, OSDI 08) 
+    \item Concolic execution (zesti, ICSE 12 - SAGE, ICSE13)
+  \end{itemize} 
+}
+
+\section{Our Idea}
+\frame
+{
+  \frametitle{\secname}
+  \begin{itemize} [<+->]
+    \item Check inferred properties during symbolic execution
+    \begin{itemize}
+      \item Apply analysis to an input program
+      \item Symbolically execute the input program
+      \item Check whether inferred properties hold
+    \end{itemize} 
+    \item Direct testing of static analysis code
+    \item Static analysis inferences checked thoroughly
+    \begin{itemize}
+      \item High path coverage of the input program
+      \item Big input program size
+    \end{itemize} 
+  \end{itemize} 
+}
+
+\section{System Status Overview}
+\frame
+{
+  \frametitle{\secname}
+  \begin{itemize} [<+->]
+    \item Checks incorporated within zesti
+    \item Checks on all pointer dereferences
+    \item Reachability analysis for inputs affecting pointer values [under implementation]
+    \item Testing with LLVM test suite programs
+  \end{itemize} 
+}
+
 \section{Implementation}
 \subsection{Symbolic Execution}
 \frame
 {
   \frametitle{\subsecname}
-  \begin{itemize}
+  \begin{itemize} 
     \item Symbolic execution using klee  
     \item Migration from Klee to Zesti (a variant of klee) 
     \cmt{
