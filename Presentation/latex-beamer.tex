@@ -69,21 +69,27 @@
 
 \defverbatim[colored]\lstI{
 \begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
-  int main() {
-    int x=1 , y=2;
-    int*  p = (int *)malloc(sizeof(int));
+  1. int main() {
+  2.   int x=1 , y=2;
+  3.   int*  p = (int *)malloc(sizeof(int));
 
-    klee_make_symbolic(&x, sizeof(x), "x");
-    //klee_make_symbolic(&y, sizeof(y), "y");
+  4.   klee_make_symbolic(&x, sizeof(x), "x");
+  5.   klee_make_symbolic(&y, sizeof(y), "y");
+    /*
+    ** If we skip to make y symbolic, then we may miss the 
+    ** opportunity of catching a potential pointer analysis
+    ** bug. For ex. what if the pointer analysis infers that
+    ** *p and the heap object at line 7 mayNOT alias.
+    */
 
-    if(0 != x*y) {
-      p = (int *)malloc(4);
-    } else {
-      if(y == 0) {
-        p = (int *)malloc(4);
-      }
-    }
-    return *p;
+        if(0 != x*y) {
+  6.      p = (int *)malloc(4);
+        } else {
+          if(y == 0) {
+  7.        p = (int *)malloc(4);
+          }
+        }
+  8.    return *p;
   }
 
 \end{lstlisting}
@@ -101,30 +107,59 @@
   };
   int main(int argc, char** argv) {
 
-  x= 0 ;
+  int x= 0 ;
   struct S* z;
   
   klee_make_symbolic(&x, sizeof(x), "X");
-  klee_assume(x >= 0 &  x <= 1 );
+  /*
+  **  Without the following klee_assume, the dereference z->x  gets resolved to many
+  **  spurious memory objects. 
+  **  Generated in-bound constraints on the fly to prevent this.
+  */
+  klee_assume(x >= 0 &  x <= 100 );
   
   z   = &data[x++];
   ... = z->x ; 
 
   return 0;
 }
+\end{lstlisting}
+}
 
+\defverbatim[colored]\lstIII{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  /* The bug shows up when there is a must alias check between 
+  ** x (at line 1) and the bitcast of x (at line 3).
+  */
+  int main(int argc, char **argv) {
+    int *A[5];
+    for (int i = 0; i < 5; ++i) {
+      A[i] = (int*) malloc((i+1)*sizeof(int));
+    }
+ 
+    int *x, a;
+    char *y;
+        
+    for (int i = 0; i < 5; ++i) {        
+   1.   x = A[i];     
+   2.   a = *x;      
+   3.   y = (char *) x;
+    }
+    return *y;
+  }
+}
 
 \end{lstlisting}
 }
 
 \defverbatim[colored]\algoCheckerIII{
-\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+\begin{lstlisting}[language=,basicstyle=\tiny,keywordstyle=\color{red}]
   1. foreach load instructions
-      1.1. base address  = `base address` of the load
+      1.1. base_address  = `base address` of the load
       1.2. foreach `pointer` in the same function scope as the load instruction 
-          1.2.1. result = mustAlais_OR_mayNOTAlias(`base address`, `pointer`) // Querying the alias analysis.
-                1.2.1.1. if result ==  must-alias, check if `base pointer` and 'pointer' points to the same runtime memory object.
-                1.2.1.2. if result ==  mayNot-alias, check if `base pointer` and 'pointer' do not points to the same runtime memory object.
+          1.2.1. result = mustAlais_OR_mayNOTAlias(`base_address`, `pointer`) // Querying the alias analysis.
+                1.2.1.1. if result ==  must-alias, check if `base_pointer` and 'pointer' points to the same runtime memory object.
+                1.2.1.2. if result ==  mayNot-alias, check if `base_pointer` and 'pointer' do not points to the same runtime memory object.
                 1.2.1.3. Otherwise, continue.
 \end{lstlisting}
 }
@@ -155,30 +190,11 @@
 \frame
 {
   \frametitle{\subsecname}
-  \begin{itemize}
-    \item Instrumenting the code to add checks. 
-    \item Incorporating the checker logic in zesti.
+  \algoCheckerIII
     \cmt{
     This prevents zesti from interpreting the checker code (as now the checker code will be a part of the symbolic execution engine). 
     With this the run time performance is expected to improve.
-      To mitigate the path explosion problem, ZESTI carefully chooses divergent
-        paths via two mechanisms: (1) it only diverges close to sensitive
-        instructions (memory accesses and divisions.), i.e instructions that
-        might contain a bug, and (2) it chooses the divergence points in order
-        of increasing distance from the sensitive instruction. The key idea
-        behind this approach is to exercise sensitive instructions on slightly
-        different paths, with the goal of triggering a bug if the respective
-        instructions contain one.  ZESTI identifies sensitive instructions
-        dynamically while running the concrete input.  
     } 
-  \end{itemize} 
-}
-
-\subsection{Checker Logic - Revised}
-\frame
-{
-  \frametitle{\subsecname}
-  \algoCheckerIII
 }
 
 \subsection{Implicit klee\_assumes}
@@ -197,18 +213,11 @@
 
 }
 
-\subsection{Importance of making a variable symbolic}
+\subsection{Importance of choosing a variable as symbolic}
 \frame
 {
   \frametitle{\subsecname}
   \lstI
-  \cmt{
-    Rather that explicitly making the  inputs of the test program
-      symbolic, let klee instrument the code by inserting klee_make_symbolic
-      calls. The inputs that we are considering include command line arguments,
-      file inputs, globals and variables used to read inputs (for example using
-          scanf).
-  }
 
 }
 
@@ -217,21 +226,27 @@
 {
   \frametitle{\subsecname}
   \begin{itemize}
-    \item explicitly specifying which variablies to make symbolic is difficult. 
+    \item Explicitly specifying which variablies to make symbolic is difficult. 
     \begin{itemize}
-      \item Klee Instruments the code by inserting appropriate klee\_make\_symbolic.
-      \item Rechability Analysis to figure out candidates.
+      \item Instrumented the code by inserting appropriate klee\_make\_symbolic.
+      \item Rechability Analysis to figure out candidates to be made symbolic.
     \end{itemize}
   \end{itemize}
-
+  \cmt{
+    Rather that explicitly making the  inputs of the test program
+      symbolic, let klee instrument the code by inserting klee_make_symbolic
+      calls. The inputs that we are considering include command line arguments,
+      file inputs, globals and variables used to read inputs (for example using
+          scanf).
+  }
 }
 
 
-\subsection{Testing}
+\subsection{Bugs Found}
 \frame
 {
   \frametitle{\subsecname}
-
+  \lstIII
 }
 
 \section{Questions?}
