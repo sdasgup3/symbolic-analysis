@@ -17,7 +17,7 @@
 \usepackage{pst-coil}
 \usepackage{color}
 \usepackage{epsfig}
-\usepackage{tikz}
+%\usepackage{tikz}
 %\usepackage{multirow}
 
 \usefonttheme{serif}
@@ -40,7 +40,7 @@
 }
 
 
-\setbeamercovered{transparent}
+\setbeamercovered{transparent=0}
 
 \lstset{classoffset=0,
   morekeywords={},keywordstyle=\color{black},
@@ -170,18 +170,21 @@
   \frametitle{\secname}
   \begin{itemize}[<+->]
     \item Infer source code properties without execution
+    \vspace{1cm}
     \item Examples:
     \begin{itemize}
       \item Pointer Analysis
       \item Liveness Analysis
     \end{itemize} 
-    \item Inferred properties true for any execution
+    \vspace{1cm}
     \item Applications:
     \begin{itemize}
       \item Compilers
       \item Security
       \item Software Engineering
     \end{itemize} 
+    \vspace{1cm}
+    \item Inferred properties true for any execution
   \end{itemize} 
 }
 
@@ -195,10 +198,12 @@
       \item no crash
       \item erroneous results
     \end{itemize} 
+    \vspace{1cm}
     \item Effect visible in client code
     \begin{itemize}
       \item Hard to trace back
     \end{itemize} 
+    \vspace{1cm}
     \item Static analysis specific tests
     \begin{itemize}
       \item small regression tests
@@ -217,8 +222,10 @@
       \item Randomly generated tests (Csmith, PLDI 11)
       \item Equivalence Modulo Inputs (Orion, PLDI 14)
     \end{itemize} 
+    \vspace{1cm}
     \item Dynamic alias analysis error detection (NeonGoby, FSE 13)
 
+    \vspace{1cm}
     \item Symbolic execution (KLEE, OSDI 08) 
     \item Concolic execution (zesti, ICSE 12 - SAGE, ICSE13)
   \end{itemize} 
@@ -235,7 +242,9 @@
       \item Symbolically execute the input program
       \item Check whether inferred properties hold
     \end{itemize} 
+    \vspace{1cm}
     \item Direct testing of static analysis code
+    \vspace{1cm}
     \item Static analysis inferences checked thoroughly
     \begin{itemize}
       \item High path coverage of the input program
@@ -250,8 +259,11 @@
   \frametitle{\secname}
   \begin{itemize} [<+->]
     \item Checks incorporated within zesti
+    \vspace{1cm}
     \item Checks on all pointer dereferences
+    \vspace{1cm}
     \item Reachability analysis for inputs affecting pointer values [under implementation]
+    \vspace{1cm}
     \item Testing with LLVM test suite programs
   \end{itemize} 
 }
@@ -263,6 +275,7 @@
   \frametitle{\subsecname}
   \begin{itemize} 
     \item Symbolic execution using klee  
+    \vspace{1cm}
     \item Migration from Klee to Zesti (a variant of klee) 
     \cmt{
       To mitigate the path explosion problem, ZESTI carefully chooses divergent
@@ -319,6 +332,7 @@
   \frametitle{\subsecname}
   \begin{itemize}
     \item Explicitly specifying which variablies to make symbolic is difficult. 
+    \vspace{1cm}
     \begin{itemize}
       \item Instrumented the code by inserting appropriate klee\_make\_symbolic.
       \item Rechability Analysis to figure out candidates to be made symbolic.

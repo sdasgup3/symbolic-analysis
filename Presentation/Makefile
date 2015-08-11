@@ -1,5 +1,5 @@
 TGT=latex-beamer
-DEPS= Figs/1.eps Figs/1.1.eps Figs/1.2.eps Figs/1.3.eps Figs/1.4.eps Figs/1.5.eps Figs/1.6.eps Figs/1.7.eps Figs/1.8.eps Figs/1.9.eps  Figs/1.3.1.eps Figs/1.3.2.eps  
+DEPS=
 
 LATEX=pslatex
 BIBTEX=bibtex
