@@ -1,4 +1,3 @@
-%\documentclass{beamer}
 \documentclass[mathserif,10pt]{beamer}
 
 \usepackage{beamerthemesplit}
@@ -26,26 +25,37 @@
 %\noindent
 
 \setcounter{tocdepth}{1}
-\lstset{language=[ANSI]C}
-\lstset{% general command to set parameter(s)
-  basicstyle=\footnotesize\tt, % print whole listing small
-    identifierstyle=, % nothing happens
-    commentstyle=\color{red}, % white comments
-    showstringspaces=false, % no special string spaces
-    lineskip=1pt,
-    captionpos=b,
-    frame=single,
-    breaklines=true
-      %\insertauthor[width={3cm},center,respectlinebreaks]
+
+
+\usepackage{color}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{mystyle}{
+    %backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    %numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    %numbers=left,                    
+    %numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
 }
+ 
+\lstset{style=mystyle,frameround=fttt}
 
 
 \setbeamercovered{transparent=0}
-
-\lstset{classoffset=0,
-  morekeywords={},keywordstyle=\color{black},
-  classoffset=1,
-  classoffset=0}% restore default
 
   \usetheme{CambridgeUS}
   \usecolortheme{dolphin}
@@ -155,35 +165,36 @@
 }
 
 \defverbatim[colored]\lstI{
-\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
-  1. int main() {
-  2.   int x=1 , y=2;
-  3.   int*  p = (int *)malloc(sizeof(int));
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red},frame=trBL]
+  1.int main() 
+    {
+  2.  int x=1 , y=2;
+  3.  int*  p = (int *)malloc(sizeof(int));
 
-  4.   klee_make_symbolic(&x, sizeof(x), "x");
-  5.   klee_make_symbolic(&y, sizeof(y), "y");
-    /*
-    ** If we skip to make y symbolic, then we may miss the 
-    ** opportunity of catching a potential pointer analysis
-    ** bug. For ex. what if the pointer analysis infers that
-    ** *p and the heap object at line 7 mayNOT alias.
-    */
+  4.  klee_make_symbolic(&x, sizeof(x), "x");
+  5.  klee_make_symbolic(&y, sizeof(y), "y");
+      /*
+      ** If we skip to make y symbolic, then we may miss the 
+      ** opportunity of catching a potential pointer analysis
+      ** bug. For ex. what if the pointer analysis infers that
+      ** (*p) and the heap object at line 7 mayNOT alias.
+      */
 
-        if(0 != x*y) {
-  6.      p = (int *)malloc(4);
-        } else {
-          if(y == 0) {
-  7.        p = (int *)malloc(4);
-          }
+      if(0 != x*y) {
+  6.    p = (int *)malloc(4);
+      } else {
+        if(y == 0) {
+  7.      p = (int *)malloc(4);
         }
-  8.    return *p;
-  }
+      }
+  8.  return *p;
+    }
 
 \end{lstlisting}
 }
 
 \defverbatim[colored]\lstII{
-\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red},frame=trBL]
   struct S {
     int member; 
   };
@@ -192,8 +203,8 @@
     { 1,2 },
     { 3,4 },
   };
-  int main(int argc, char** argv) {
-
+  int main(int argc, char** argv) 
+  {
     int x= 0 ;
     struct S* z;
   
@@ -209,17 +220,24 @@
     ... = z->member ; 
 
     return 0;
-}
+  }
 \end{lstlisting}
 }
 
 \defverbatim[colored]\lstIII{
-\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red},frame=trBL]
   /* The bug shows up when there is a must alias check between 
   ** x (at line 1) and the bitcast of x (at line 3).
+  ** Our debugger is able to detect the error at i = 1, terminate and produce the input as N = 2147483647  
   */
-  int main(int argc, char **argv) {
+  int main(int argc, char **argv) 
+  {
     int *A[5];
+    int N = 1;
+
+    klee_make_symbolic(&N, sizeof(N), "N");
+    klee_assume(N > 0);
+
     for (int i = 0; i < 5; ++i) {
       A[i] = (int*) malloc((i+1)*sizeof(int));
     }
@@ -227,33 +245,30 @@
     int *x, a;
     char *y;
         
-    for (int i = 0; i < 5; ++i) {        
-   1.   x = A[i];     
-   2.   a = *x;      
-   3.   y = (char *) x;
+    for (int i = 0; i < N; ++i) {        
+   1. x = A[i];     
+   2. a = *x;      
+   3. y = (char *) x;
     }
     return *y;
   }
-}
-
 \end{lstlisting}
 }
 
 \defverbatim[colored]\algoCheckerIII{
-\begin{lstlisting}[language=C,basicstyle=\tiny,keywordstyle=\color{red}]
-  foreach(loadI = load instructions) {
-    base_address  = `base address` of the loadI
-    foreach( `pointer` in the same function scope as the load instruction) { 
-      result = mustAlias_OR_mayNOTAlias(`base_address`, `pointer`) // Querying the alias analysis.
-      if( result ==  must-alias) { 
-        if (`base_pointer` and 'pointer' DO NOT point to the same run-time memory object) {
-          error
-        }
+\begin{lstlisting}[language=C,basicstyle=\tiny,keywordstyle=\color{red},frame=trBL]
+  base_address  = `base address` of the loadI
+  pointerSet    = All the pointers in the same function scope as loadI
+  foreach( `pointer` in pointerSet) { 
+    result = MustAlias_OR_MayNOTAlias(`base_address`, `pointer`) // Querying the alias analysis.
+    if( result ==  must-alias) { 
+      if (`base_pointer` and 'pointer' DO NOT point to the same run-time memory object) {
+        error
       }
-      if (result ==  mayNot-alias) { 
-        if (`base_pointer` and 'pointer' point to the same run-time memory object) {
-          error
-        }
+    }
+    if (result ==  mayNot-alias) { 
+      if (`base_pointer` and 'pointer' point to the same run-time memory object) {
+        error
       }
     }
   }
@@ -439,10 +454,14 @@
 \frame
 {
   \frametitle{\subsecname}
+  \begin{itemize}
+    \item Following check is done after each pointer dereference (say loadI)
+  \end{itemize}
   \algoCheckerIII
     \cmt{
       Our work is on devising a debugger for static analysis.
       In our current implementation the static analysis that we are debugging is pointer analysis.
+      what I mean by PA bug
     } 
 }
 
@@ -492,7 +511,7 @@
 }
 
 
-\subsection{Bugs Found}
+\subsection{Bug Found in LLVM BasicAA}
 \frame
 {
   \frametitle{\subsecname}
