@@ -2984,9 +2984,7 @@ void Executor::run(ExecutionState &initialState) {
   }
 
  search:
-  if(DebugPrintAAChecks) {
-    klee_message("\n\nSearch Begin: states size %d", (int)states.size());
-  }
+  klee_message("\n\nSearch Begin: states size %d", (int)states.size());
 
   searcher = constructUserSearcher(*this);
   // klee timers have 0.1s resolution, unsuitable for inst execution time
@@ -3739,11 +3737,12 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
   const Value *base =
     dyn_cast<LoadInst>(target->inst)->getPointerOperand();
 
-  std::string base_str;
-  llvm::raw_string_ostream rso_base(base_str);
+  std::string msg_str;
+  llvm::raw_string_ostream rso(msg_str);
 
-  rso_base << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
-  rso_base << "AACHECKS: Performing alias checks for the dereferenced pointer" << *(base) << "\n";
+  rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
+  rso << "AACHECKS: Performing alias checks for the "
+         "dereferenced pointer" << *(base) << "\n";
 
   // Get all the pointers in the parent function.
   Function *parentFunc =
@@ -3753,13 +3752,11 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
     aainterface->getPointerSetForFunction(parentFunc);
 
   // Perform an alias check with each pointer in the parent function.
+  bool allChecksSucceeded = true;
   symbexchecks::PointerCollector::PointerSet::iterator
     it = Pointers.begin(), itEnd = Pointers.end();
   for (; it != itEnd; ++it) {
     const Value *ptr = *it;
-
-    std::string error_msg;
-    llvm::raw_string_ostream rso(error_msg);
 
     // Consult the alias analysis.
     bool mustAlias = aainterface->mustAlias(base, ptr);
@@ -3768,7 +3765,8 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
     if (mustAlias && mayNotAlias) {
       rso << "Alias analysis internal error: " << *base << " and " <<
              *ptr << " must alias and may not alias at the same time!\n";
-      terminateStateOnError(state, rso.str().c_str(), "aachecks");
+      allChecksSucceeded = false;
+      continue;
     }
 
     // Only check when the analysis actually provides alias information.
@@ -3800,10 +3798,6 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
       }
       solver->setTimeout(0);
 
-      rso << "AACHECKS: The dereferenced pointer " <<
-        (mustAlias ? "must" : "may not") <<
-        " alias with the pointer " << *ptr << ". Checking ...\n";
-
       // Perform the checks.
       bool checkSatisfied = false;
       bool foundBoth = false;
@@ -3823,23 +3817,46 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         }
       }
 
-      if (!foundBoth) { 
-        rso << "AACHECKS: The second pointer did not resolve to "
-               "a memory object (maybe a function pointer).\n";
+      if (DebugPrintAAChecks && (!foundBoth || checkSatisfied)) {
+        rso << "AACHECKS: The dereferenced pointer " << *base <<
+               (mustAlias ? " must" : " may not") <<
+               " alias with the pointer " << *ptr << ". Checking ...\n";
+      }
+
+      if (!foundBoth) {
+        if (DebugPrintAAChecks) {
+          rso << "AACHECKS: The second pointer did not resolve to "
+                 "a memory object (maybe a function pointer).\n";
+        }
         continue;
       }
 
       if (checkSatisfied) {
-        rso << "AACHECKS: Check succeeded.\n";
+        if (DebugPrintAAChecks) {
+          rso << "AACHECKS: Check succeeded.\n";
+        }
       }
-
-      if (!checkSatisfied) {
+      else {
         rso << "AACHECKS: Failed alias analysis check!\n";
-
-        klee_message("%s", rso_base.str().c_str());
-        klee_message("%s", rso.str().c_str());
-      	//terminateStateOnError(state, rso.str().c_str(), "aachecks");
+        allChecksSucceeded = false;
       }
+    }
+    else {
+      if (DebugPrintAAChecks) {
+        rso << "AACHECKS: The dereferenced pointer " << *base <<
+               " may alias with the pointer " << *ptr <<
+               ". No checking required.\n";
+      }
+    }
+  }
+
+  if (!allChecksSucceeded) {
+    //klee_message("%s", rso.str().c_str());
+    terminateStateOnError(state, rso.str().c_str(), "aachecks");
+  }
+  else {
+    if (DebugPrintAAChecks) {
+      klee_message("%s", rso.str().c_str());
     }
   }
 }
