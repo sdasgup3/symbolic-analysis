@@ -236,7 +236,6 @@
     int N = 1;
 
     klee_make_symbolic(&N, sizeof(N), "N");
-    klee_assume(N > 0);
 
     for (int i = 0; i < 5; ++i) {
       A[i] = (int*) malloc((i+1)*sizeof(int));
@@ -250,7 +249,7 @@
    2. a = *x;      
    3. y = (char *) x;
     }
-    return *y;
+    return 0;
   }
 \end{lstlisting}
 }
