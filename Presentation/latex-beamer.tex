@@ -67,6 +67,93 @@
     \end{frame}
 }
 
+\defverbatim[colored]\lstBugI{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  1. int v[100];
+
+  2. void f(int x) {
+  3.   if (x > 99)
+  4.     x = 99;
+
+  5.   v[x] = 0;
+  6. }
+
+  7. int main(int argc, char **argv) {
+  8.   int x = 50;
+  9.   f(x);
+
+ 10.   return 0;
+ 11. }
+
+\end{lstlisting}
+}
+
+\defverbatim[colored]\lstBugII{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  1. int v[100];
+
+  2. void f(int x) {
+  3.   if (x > 99)
+  4.     x = 99;
+
+  5.   v[x] = 0;
+  6. }
+
+  7. int main(int argc, char **argv) {
+  8.   int x;
+  9.   klee_make_symbolic(&x, sizeof(x), "X");
+ 10.   f(x);
+
+ 11.   return 0;
+ 12. }
+
+\end{lstlisting}
+}
+
+\defverbatim[colored]\lstBugIII{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  1. int v[100];
+
+  2. void f(int x) {
+  3.   if (x > 99)
+  4.     x = 99;
+
+  5.   v[x] = 0;
+  6. }
+
+  7. int main(int argc, char **argv) {
+  8.   int x = 50;
+  9.   klee_make_symbolic(&x, sizeof(x), "X");
+ 10.   f(x);
+
+ 11.   return 0;
+ 12. }
+
+\end{lstlisting}
+}
+
+\defverbatim[colored]\lstBugIV{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
+  1. int v[100];
+
+  2. void f(int x) {
+  3.   if (x > 99)
+  4.     x = 99;
+
+  5.   v[x] = 0;
+  6. }
+
+  7. int main(int argc, char **argv) {
+  8.   int x = 100;
+  9.   klee_make_symbolic(&x, sizeof(x), "X");
+ 10.   f(x);
+
+ 11.   return 0;
+ 12. }
+
+\end{lstlisting}
+}
+
 \defverbatim[colored]\lstI{
 \begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red}]
   1. int main() {
@@ -211,6 +298,7 @@
     \item Effect visible in client code
     \begin{itemize}
       \item Hard to trace back
+      \item Not reliable
     \end{itemize} 
     \vspace{1cm}
     \item Static analysis specific tests
@@ -238,6 +326,35 @@
     \item Symbolic execution (KLEE, OSDI 08) 
     \item Concolic execution (zesti, ICSE 12 - SAGE, ICSE13)
   \end{itemize} 
+}
+
+\section{Background}
+\subsection{Array Out of Bounds Bug}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstBugI
+}
+
+\subsection{Symbolic Execution with KLEE}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstBugII
+}
+
+\subsection{Concolic Execution with zesti}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstBugIII
+}
+
+\subsection{Concolic Execution with zesti}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstBugIV
 }
 
 \section{Our Idea}
@@ -271,7 +388,9 @@
     \vspace{1cm}
     \item Checks incorporated within zesti
     \vspace{1cm}
-    \item Checks on all pointer dereferences
+    \item Checks on all loads
+    \vspace{1cm}
+    \item Pointer dereferences marked sensitive
     \vspace{1cm}
     \item Reachability analysis for inputs affecting pointer values [under implementation]
     \vspace{1cm}
