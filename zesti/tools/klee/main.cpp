@@ -28,6 +28,7 @@
 
 
 #include "llvm/PassManager.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "symbexchecks/AAChecksInterface.h"
@@ -1460,39 +1461,35 @@ void reserveFirstFds() {
   }
 }
 
-// Apply a basicaa+tbaa chain and create the interface
+// Add passes for a basicaa+tbaa chain as well as the interface
 // that will be used for checking.
 symbexchecks::SymbExChecksInterface *
-applyAliasAnalysis(PassManager &passes, Module *m) {
-  passes.add(new TargetLibraryInfo());
-  passes.add(createNoAAPass());
-  passes.add(createBasicAliasAnalysisPass());
-  passes.add(createTypeBasedAliasAnalysisPass());
+addAliasAnalysisPasses(PassManager &Passes, Module *m) {
+  Passes.add(new TargetLibraryInfo(Triple(m->getTargetTriple())));
+  Passes.add(createNoAAPass());
+  Passes.add(createBasicAliasAnalysisPass());
+  Passes.add(createTypeBasedAliasAnalysisPass());
 
   symbexchecks::SymbExChecksInterface *aainterface =
     new symbexchecks::AAChecksInterface();
-  passes.add(aainterface);
-
-  passes.run(*m);
+  Passes.add(aainterface);
 
   return aainterface;
 }
 
-// Apply the DSA pointer analysis and create the interface
+// Add passes for the DSA pointer analysis as well as the interface
 // that will be used for checking.
 symbexchecks::SymbExChecksInterface *
-applyDSA(PassManager &passes, Module *m) {
-  passes.add(new DataLayout(m));
+addDSAPasses(PassManager &Passes, Module *m) {
+  Passes.add(new DataLayout(m));
 
   TDDataStructures *TD = new TDDataStructures();
   TD->setDSGraphsStolen();
-  passes.add(TD);
+  Passes.add(TD);
 
   symbexchecks::SymbExChecksInterface *aainterface =
     new symbexchecks::DSAChecksInterface();
-  passes.add(aainterface);
-
-  passes.run(*m);
+  Passes.add(aainterface);
 
   return aainterface;
 }
@@ -1788,13 +1785,16 @@ int main(int argc, char **argv, char **envp) {
     symbexchecks::SymbExChecksInterface *aainterface;
    
     if(EnableDSAAliasAnalysis) {
-      aainterface = applyDSA(Passes, mainModule);
+      aainterface = addDSAPasses(Passes, mainModule);
     } else {
-      aainterface = applyAliasAnalysis(Passes, mainModule);
+      aainterface = addAliasAnalysisPasses(Passes, mainModule);
     }
 
     if (!aainterface)
-      klee_error("Unable to apply requested pointer/alias analysis");
+      klee_error("Unable to add requested pointer/alias analysis");
+
+    Passes.run(*mainModule);
+
     interpreter->setAliasAnalysisResult(aainterface);
   }
 
