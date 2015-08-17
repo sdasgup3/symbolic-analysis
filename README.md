@@ -131,8 +131,8 @@ Running withOUT checker (the llvm used must be compatible with klee build)
 Build libffi used for running lli
 -----------------------------------
 ```
-Following the steps in http://www.linuxfromscratch.org/blfs/view/svn/general/libffi.html
-to install libffi.
+Follow the steps in http://www.linuxfromscratch.org/blfs/view/svn/general/libffi.html
+to install libffi and then
 1. export CPPFLAGS='-I/pathto/libffiinckude/'
 2. export LDFLAGS='-L/pathto/libffilibs/'
 3. export LD_LIBRARY_PATH to  point to the libffi libs
