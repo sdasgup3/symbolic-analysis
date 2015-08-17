@@ -128,3 +128,17 @@ Running withOUT checker (the llvm used must be compatible with klee build)
 /home/sdasgup3/SymbolicAnalysis/zesti//Release+Asserts/bin/klee  --zest      -debug-print-instructions         --use-symbex=2 --symbex-for=10 --search=zest --zest-search-heuristic=br --zest-discard-far-states=false ./zesti_test_6.a.out.bc
 ```
 
+Build libffi used for running lli
+-----------------------------------
+```
+Following the steps in http://www.linuxfromscratch.org/blfs/view/svn/general/libffi.html
+to install libffi.
+1. export CPPFLAGS='-I/pathto/libffiinckude/'
+2. export LDFLAGS='-L/pathto/libffilibs/'
+3. export LD_LIBRARY_PATH to  point to the libffi libs
+run confugure and make llvm
+
+
+
+
+```
