@@ -33,6 +33,7 @@
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "symbexchecks/AAChecksInterface.h"
 #include "symbexchecks/DSAChecksInterface.h"
+#include "symbexchecks/SimpleReachAnalysis.h"
 
 
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
@@ -1792,6 +1793,12 @@ int main(int argc, char **argv, char **envp) {
 
     if (!aainterface)
       klee_error("Unable to add requested pointer/alias analysis");
+
+    // Also add a reachability analysis pass to assist choosing
+    // symbolic variables.
+    symbexchecks::SimpleReachAnalysis *simplereach =
+      new symbexchecks::SimpleReachAnalysis();
+    Passes.add(simplereach);
 
     Passes.run(*mainModule);
 
