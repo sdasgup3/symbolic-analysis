@@ -1,22 +1,76 @@
                               native_run_time         jit_time  lli_time        klee_concrete_run_w/o_checks    klee_concrete_run_w_checks
-./aha/Makefile                2.1037                  2.2307    3346.9542       106m27.300s
+./aha/Makefile                2.1037                  2.2307    3346.9542 [2001281667]      106m27.300s [12141488820]+13867
+                                                                                            113m46.966s [12032820792]  (div by zero removed, invound checking removed but getelement ptr is there)
+
+-------------------------------------------------------------------------------------------------------------------------------
 ./lambda-0.1.3/Makefile       5.5102                  7.1659    5116.4352       268m48.679s
 ./ALAC/encode/Makefile        0.0260                  0.2430    43.1754      
 
-./Stanford/IntMM              0.0010                0.0150      2.1117          0m4.019s                          6m32.979s
-./Stanford/RealMM             0.0020                0.0140      1.9787          0m5.406s                          6m27.876s
-./Stanford/Quicksort          0.0410                0.0510      24.3813         0m39.883s                         79m54.503s
-./Stanford/Queens             0.0370                0.0520      20.0360         0m38.840s                         81m59.687s
+./Stanford/IntMM              0.0010                0.0150      2.1117 [6228881]          0m4.019s [7814881]+4777                          6m32.979s
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+./Stanford/RealMM             0.0020                0.0140      1.9787 [6292881]         5.406s [7878881]+4777       6m27.876s
+                                                                   rem div_by_zero       5.090s   7654881
+                                                                     7654881 -  6292881 = 1362000 (phi instructions)                   
+After regToMem: 20880179 lli to 20190969                         11m       [20880179]       24m [20190969] (createCFGSimplificationPass)
+rem div checks and inbopund :                                                              0m4.847s
+getelm: 1328010
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+./Stanford/Puzzle             0.1500                0.1860      188.5333 [697819703]       5m39.421s [800104702]+15980177
+
+./Stanford/Quicksort          0.0410                0.0510      24.3813[82326102]         0m39.883s [117933202]+4777                        79m54.503s
+./Stanford/Queens             0.0370                0.0520      20.0360[79715526]         0m38.840s [88560616]+4777                        81m59.687s
 ./Stanford/Bubblesort         0.0460                0.0600      35.7216         0m59.707s                         116m32.329s
 ./Stanford/Perm               0.0220                0.0380      21.2618         0m47.751s                         127m34.294s
 ./Stanford/Towers             0.0150                0.0040      29.2296         0m50.715s
-./Stanford/Puzzle             0.1500                0.1860      188.5333        5m39.421s
 
 Not interesting:
 ./Shootout/nestedloop         0.1600                0.1645      3m34.240s        3m58.411s                         4m5.165s
-./Shootout/ackermann          0.0050                0.0140      5.6351          0m5.833s                          0m6.500s
+./Shootout/ackermann          0.0050                0.0140      5.6351 [16713961]          0m5.833s [22287999]+4777                         0m6.500s
 
 *In both the klee_concrete_run_w/o_checks & klee_concrete_run_w_checks runs made sure that the symbolic runs should not kick in. 
 
 Why the difference between klee_concrete_run_w/o_checks & klee_concrete_run_w_checks is not seen in some cases?
 Whats makes klee_concrete_run_w/o_checks dominate lli time?
+
+Effect of having uclibc
+--libc=uclibc --allow-external-sym-calls
+
+time lli -info-output-file=/home/sdasgup3/Documents/llvmpa/llvmpa.tests/klee-test-suite.obj/SingleSource/Benchmarks/Stanford/Output/RealMM.out-lli.info -stats -time-passes -force-interpreter=true --disable-core-files  Output/RealMM.llvm.bc
+
+time /home/sdasgup3/Documents/klee-zesti/zesti.obj/Release+Asserts/bin/klee --zest --use-symbex=2 --symbex-for=10 --search=zest --libc=uclibc --allow-external-sym-calls  --zest-search-heuristic=br  --zest-discard-far-states=false --use-query-log=all:pc  --use-query-log=solver:pc  Output/RealMM.llvm.bc
+
+KLEE: 1 seeds remaining over: 1 states; 0 sec. add constaint time after 161555879 constrains (0 actual)
+77
+2005
+77
+2005
+77
+2005
+77
+2005
+KLEE: 1 seeds remaining over: 1 states; 0 sec. add constaint time after 166935890 constrains (0 actual)
+
++4777 for uclibc
+KLEE: ERROR: external call with symbolic argument: printf
+
+
+Interpreter::SwitchToNewBasicBlock
+PHIElimination
+KLEE: done: total instructions = 26
+KLEE: done: completed paths = 2
+KLEE: done: generated tests = 2
+
+for (ConstraintManager::constraint_iterator it = state.constraints.begin(), ite = state.constraints.end();
+          it != ite; ++it) {
+    findReads(*it, false, reads2);
+    reads.insert(reads.end(), reads2.begin(), reads2.end());
+  }
+
+
+lli erros:
+LLVM ERROR: Calling external var arg function 'qsort' is not supported by the Interpreter.
+LLVM ERROR: Code generator does not support intrinsic function 'llvm.umul.with.overflow.i64'!
+LLVM ERROR: Could not resolve external global address: __dso_handle
+crases
+
+
