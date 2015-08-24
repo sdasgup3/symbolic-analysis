@@ -1,4 +1,6 @@
 #include "symbexchecks/SimpleReachAnalysis.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -23,11 +25,62 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
 
   errs() << "SimpleReachAnalysis runs!!!\n";
 
+  Module::iterator funIt = M.begin(), funItEnd = M.end();
+  for (; funIt != funItEnd; ++funIt) {
+    Function &F = *funIt;
+    Function::iterator bbIt = F.begin(), bbItEnd = F.end();
+    for (; bbIt != bbItEnd; ++bbIt) {
+      BasicBlock &BB = *bbIt;
+      BasicBlock::iterator instIt = BB.begin(), instItEnd = BB.end();
+      for (; instIt != instItEnd; ++instIt) {
+        Instruction &I = *instIt;
+        if (LoadInst *loadInst = dyn_cast<LoadInst>(&I)) {
+          Value *ptr = loadInst->getPointerOperand();
+          InputSet In;
+          getReachingInputs(ptr, In);
+          printInputs(ptr, errs());
+        }
+      } 
+    }
+  }
+
   // does not modify module.
   return false;
 }
 
-bool SimpleReachAnalysis::isInput(const Value *) {
+void SimpleReachAnalysis::printInputs(const Value *v, raw_ostream &O) {
+  O << "\n======================================================\n";
+  O << *v << "\n";
+  O << "------------------------------------------------------\n\n";
+
+  StateMap::iterator SMIt = ValueToState.find(v);
+  if (SMIt == ValueToState.end() || SMIt->second != Completed) {
+    O << "\tNo complete information available.\n\n";
+  }
+  else {
+    assert(ValueToInputs.find(v) != ValueToInputs.end() &&
+           "SimpleReachAnalysis: No reaching input set for value with state.");
+
+    InputSet &ReachingInputs = ValueToInputs[v];
+    InputSet::iterator it = ReachingInputs.begin(),
+                       itEnd = ReachingInputs.end();
+    if (it == itEnd) {
+      O << "\tNo reaching inputs found.\n\n";
+    }
+    else {
+      for (; it != itEnd; ++it) {
+        const Value *inp = *it;
+        O << "\t";
+        inp->print(O);
+        O << "\n";
+      }
+      O << "\n";
+    }
+  }
+  O << "======================================================\n\n";
+}
+
+bool SimpleReachAnalysis::isInput(const Value *v) {
   // return true for command line arguments, global variables, and
   // external function calls.
   return false;

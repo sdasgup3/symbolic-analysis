@@ -44,7 +44,7 @@ private:
   // the Successors argument and true is returned.
   bool getImmediateSuccessors(const llvm::Value *v, ValuePtrSet &Successors);
 
-  bool isInput(const llvm::Value *);
+  bool isInput(const llvm::Value *v);
   
   // Returns false when no reaching input to v is found, otherwise
   // the reaching inputs are inserted into the Inputs argument
@@ -54,6 +54,8 @@ private:
   // Helper recursive function for input discovery. 
   enum ValueState getReachingInputsRec(const llvm::Value *v, InputSet &Inputs);
   
+  void printInputs(const llvm::Value *v, llvm::raw_ostream &O);
+
 public:
   // Pass related
   static char ID;
