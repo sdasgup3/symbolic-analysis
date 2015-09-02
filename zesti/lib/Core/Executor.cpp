@@ -3755,6 +3755,7 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
   bool allChecksSucceeded = true;
   symbexchecks::PointerCollector::PointerSet::iterator
     it = Pointers.begin(), itEnd = Pointers.end();
+
   for (; it != itEnd; ++it) {
     const Value *ptr = *it;
 
@@ -3817,12 +3818,6 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         }
       }
 
-      if (DebugPrintAAChecks && (!foundBoth || checkSatisfied)) {
-        rso << "AACHECKS: The dereferenced pointer " << *base <<
-               (mustAlias ? " must" : " may not") <<
-               " alias with the pointer " << *ptr << ". Checking ...\n";
-      }
-
       if (!foundBoth) {
         if (DebugPrintAAChecks) {
           rso << "AACHECKS: The second pointer did not resolve to "
@@ -3830,6 +3825,13 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
         }
         continue;
       }
+
+      if (DebugPrintAAChecks) {
+        rso << "AACHECKS: The dereferenced pointer " << *base <<
+               (mustAlias ? " must" : " may not") <<
+               " alias with the pointer " << *ptr << ". Checking ...\n";
+      }
+
 
       if (checkSatisfied) {
         if (DebugPrintAAChecks) {
@@ -3851,12 +3853,11 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
   }
 
   if (!allChecksSucceeded) {
-    //klee_message("%s", rso.str().c_str());
     terminateStateOnError(state, rso.str().c_str(), "aachecks");
   }
   else {
     if (DebugPrintAAChecks) {
-      klee_message("%s", rso.str().c_str());
+      //klee_message("%s", rso.str().c_str());
     }
   }
 }
