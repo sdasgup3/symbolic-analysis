@@ -25,6 +25,13 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
 
   errs() << "SimpleReachAnalysis runs!!!\n";
 
+  MemoryWrites.clear();
+  ValueToInputs.clear();
+
+  collectMemoryWrites(M);
+
+  findReachingInputs(M);
+/*
   Module::iterator funIt = M.begin(), funItEnd = M.end();
   for (; funIt != funItEnd; ++funIt) {
     Function &F = *funIt;
@@ -36,32 +43,47 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
         Instruction &I = *instIt;
         if (LoadInst *loadInst = dyn_cast<LoadInst>(&I)) {
           Value *ptr = loadInst->getPointerOperand();
-          InputSet In;
-          getReachingInputs(ptr, In);
-          printInputs(ptr, errs());
+          printInputs(errs(), ptr);
         }
       } 
     }
   }
-
+*/
   // does not modify module.
   return false;
 }
 
-void SimpleReachAnalysis::printInputs(const Value *v, raw_ostream &O) {
+void SimpleReachAnalysis::printReachNodes(raw_ostream &O,
+                                          IndexToValueVector &ValueOf,
+                                          ValueToIndexMap &IndexOf) {
+  O << "\n======================================================\n";
+  O << "Reach Nodes Enumeration" << "\n";
+  O << "------------------------------------------------------\n\n";
+
+  for (index_t i = 0; i < ValueOf.size(); ++i) {
+    const Value *val = ValueOf[i];
+    O << IndexOf[val] << ")\t";
+    if (const Function *f = dyn_cast<Function>(val))
+      O << "Function @" << f->getName();
+    else
+      val->print(O);
+    O << "\n";
+  }
+
+  O << "======================================================\n\n";
+}
+
+void SimpleReachAnalysis::printInputs(raw_ostream &O, const Value *v) {
   O << "\n======================================================\n";
   O << *v << "\n";
   O << "------------------------------------------------------\n\n";
 
-  StateMap::iterator SMIt = ValueToState.find(v);
-  if (SMIt == ValueToState.end() || SMIt->second != Completed) {
-    O << "\tNo complete information available.\n\n";
+  ReachMap::iterator RMIt = ValueToInputs.find(v);
+  if (RMIt == ValueToInputs.end()) {
+    O << "\tValue cannot be affected by inputs (possibly constant.\n\n";
   }
   else {
-    assert(ValueToInputs.find(v) != ValueToInputs.end() &&
-           "SimpleReachAnalysis: No reaching input set for value with state.");
-
-    InputSet &ReachingInputs = ValueToInputs[v];
+    InputSet &ReachingInputs = RMIt->second;
     InputSet::iterator it = ReachingInputs.begin(),
                        itEnd = ReachingInputs.end();
     if (it == itEnd) {
@@ -86,185 +108,187 @@ bool SimpleReachAnalysis::isInput(const Value *v) {
   return false;
 }
 
+void SimpleReachAnalysis::collectMemoryWrites(Module &M) {
+
+  Module::iterator funIt = M.begin(), funItEnd = M.end();
+  for (; funIt != funItEnd; ++funIt) {
+    Function &F = *funIt;
+    Function::iterator bbIt = F.begin(), bbItEnd = F.end();
+    for (; bbIt != bbItEnd; ++bbIt) {
+      BasicBlock &BB = *bbIt;
+      BasicBlock::iterator instIt = BB.begin(), instItEnd = BB.end();
+      for (; instIt != instItEnd; ++instIt) {
+        MemoryWrite MW;
+        Instruction &I = *instIt;
+        if (StoreInst *storeInst = dyn_cast<StoreInst>(&I)) {
+          MW.inst = storeInst;
+          MW.ptr = storeInst->getPointerOperand();
+          MW.val = storeInst->getValueOperand();
+          MemoryWrites.insert(MW);
+        }
+        else if (AtomicCmpXchgInst *acxInst = dyn_cast<AtomicCmpXchgInst>(&I)) {
+          MW.inst = acxInst;
+          MW.ptr = acxInst->getPointerOperand();
+          MW.val = acxInst->getNewValOperand();
+          MemoryWrites.insert(MW);
+        }
+        else if (AtomicRMWInst *armwInst = dyn_cast<AtomicRMWInst>(&I)) {
+          MW.inst = armwInst;
+          MW.ptr = armwInst->getPointerOperand();
+          MW.val = armwInst->getValOperand();
+          MemoryWrites.insert(MW);
+        }
+      } 
+    }
+  }
+}
+
+void SimpleReachAnalysis::enumerateReachNodes(Module &M,
+                                              IndexToValueVector &ValueOf,
+                                              ValueToIndexMap &IndexOf) {
+  index_t idx = 0;
+
+  Module::global_iterator gvIt = M.global_begin(), gvItEnd = M.global_end();
+  for (; gvIt != gvItEnd; ++gvIt) {
+    GlobalVariable &GV = *gvIt;
+    assert(idx + 1 > idx && "SimpleReachAnalysis: enumerateReachNodes"
+                            " overflow!");
+    ValueOf.push_back(&GV);
+    IndexOf[&GV] = idx;
+    ++idx;
+  }
+
+  Module::iterator funIt = M.begin(), funItEnd = M.end();
+  for (; funIt != funItEnd; ++funIt) {
+    Function &F = *funIt;
+    assert(idx + 1 > idx && "SimpleReachAnalysis: enumerateReachNodes"
+                            " overflow!");
+    ValueOf.push_back(&F);
+    IndexOf[&F] = idx;
+    ++idx;
+
+    Function::iterator bbIt = F.begin(), bbItEnd = F.end();
+    for (; bbIt != bbItEnd; ++bbIt) {
+      BasicBlock &BB = *bbIt;
+      BasicBlock::iterator instIt = BB.begin(), instItEnd = BB.end();
+      for (; instIt != instItEnd; ++instIt) {
+        Instruction &I = *instIt;
+        assert(idx + 1 > idx && "SimpleReachAnalysis: enumerateReachNodes"
+                                " overflow!");
+        ValueOf.push_back(&I);
+        IndexOf[&I] = idx;
+        ++idx;
+      } 
+    }
+
+    Function::arg_iterator argIt = F.arg_begin(), argItEnd = F.arg_end();
+    for (; argIt != argItEnd; ++argIt) {
+      Argument &Arg = *argIt;
+      assert(idx + 1 > idx && "SimpleReachAnalysis: enumerateReachNodes"
+                              " overflow!");
+      ValueOf.push_back(&Arg);
+      IndexOf[&Arg] = idx;
+      ++idx;
+    }
+  }
+}
+
 bool SimpleReachAnalysis::getImmediateSuccessors(const Value *v,
                                                  ValuePtrSet &Successors) {
-/*
   if (const Argument *arg = dyn_cast<Argument>(v)) {
     // case Argument
   }
   else if (const Instruction *inst = dyn_cast<Instruction>(v)) {
     // case Instruction
+    if (const BinaryOperator *binop = dyn_cast<BinaryOperator>(inst)) {
+      Successors.insert(binop->getOperand(0));
+      Successors.insert(binop->getOperand(1));
+      return true;
+    }
+    else if (const CmpInst *cmpInst = dyn_cast<CmpInst>(inst)) {
+      Successors.insert(cmpInst->getOperand(0));
+      Successors.insert(cmpInst->getOperand(1));
+      return true;
+    }
+    else if (const CastInst *castInst = dyn_cast<CastInst>(inst)) {
+      Successors.insert(castInst->getOperand(0));
+      return true;
+    }
+    else if (const LoadInst *loadInst = dyn_cast<LoadInst>(inst)) {
+      Successors.insert(loadInst->getPointerOperand());
+
+      MemoryWriteSet::iterator MWIt = MemoryWrites.begin(),
+                               MWItEnd = MemoryWrites.end();
+      for (; MWIt != MWItEnd; ++MWIt)
+        Successors.insert(MWIt->val);
+
+      return true;
+    }
   }
   else if (isa<Constant>(v))
     // Constant values cannot be affected by any
     // program input.
     return false;
   else if (isa<BasicBlock>(v))
-    assert(false && "SimpleReachAnalysis.getReachingInputs called "
-                    "a BasicBlock value!");
+    assert(false && "SimpleReachAnalysis: getImmediateSuccessors called "
+                    "with BasicBlock value!");
   else if (isa<InlineAsm>(v))
-    assert(false && "SimpleReachAnalysis.getReachingInputs called "
-                    "an InlineAsm value!");
+    assert(false && "SimpleReachAnalysis: getImmediateSuccessors called "
+                    "with an InlineAsm value!");
   else if (isa<MDNode>(v))
-    assert(false && "SimpleReachAnalysis.getReachingInputs called "
-                    "an MDNode value!");
+    assert(false && "SimpleReachAnalysis: getImmediateSuccessors called "
+                    "with an MDNode value!");
   else
-    assert(false && "SimpleReachAnalysis.getReachingInputs: unknown value");
-*/
+    assert(false && "SimpleReachAnalysis: getImmediateSuccessors called "
+                    "with an unknown value");
 
   return false;
 }
 
-bool SimpleReachAnalysis::getReachingInputs(const Value *v, InputSet &Inputs) {
+void SimpleReachAnalysis::findReachingInputs(Module &M) {
+  IndexToValueVector ValueOf;
+  ValueToIndexMap IndexOf;
 
-  unsigned size = Inputs.size();
-  ValueState State = getReachingInputsRec(v, Inputs);
-  unsigned newSize = Inputs.size();
-  assert(newSize >= size && "SimpleReachAnalysis: Inputs lost.");
+  // enumerate nodes of the reachability graph
+  enumerateReachNodes(M, ValueOf, IndexOf);
+  index_t NumNodes = ValueOf.size();
 
-  if (State == Incomplete) {
-    // The result is incomplete because of dependency cycles. We
-    // ignore the cycles and change the result to completed.
-    assert(ValueToRemainingOps.find(v) != ValueToRemainingOps.end() &&
-           "SimpleReachAnalysis: No incomplete set for incomplete value.");
-    ValueToState[v] = Completed;
-    ValueToRemainingOps.erase(v);
+  // this matrix will serve as the reachability graph
+  unsigned char ReachMatrix[NumNodes][NumNodes];
+
+  // initialize reachbility graph
+  for (index_t i = 0; i < NumNodes; ++i) {
+    const Value *val = ValueOf[i];
+    for (index_t j = 0; j < NumNodes; ++j)
+      ReachMatrix[i][j] = 0;
+    ValuePtrSet Successors;
+    getImmediateSuccessors(val, Successors);
+    ValuePtrSet::iterator It = Successors.begin(), ItEnd = Successors.end();
+    for (; It != ItEnd; ++It)
+      ReachMatrix[i][IndexOf[*It]] = 1;
   }
 
-  assert(State != InProgress && "SimpleReachAnalysis: InProgress returned at "
-                                "the top of the recursion.");
-  return newSize > size;
+  // compute full reachability graph with floyd-warshall
+  for (index_t k = 0; k < NumNodes; ++k)
+    for (index_t i = 0; i < NumNodes; ++i)
+      for (index_t j = 0; j < NumNodes; ++j)
+        if (ReachMatrix[i][k] && ReachMatrix[k][j])
+          ReachMatrix[i][j] = 1;
+
+  // populate the ValueToInputs map
+  for (index_t i = 0; i < NumNodes; ++i) {
+    const Value *val = ValueOf[i];
+    InputSet &Inputs = ValueToInputs[val];
+    for (index_t j = 0; j < NumNodes; ++j) {
+      const Value *reachingVal = ValueOf[j];
+      if (isInput(reachingVal))
+        Inputs.insert(reachingVal);
+    }
+  }
 }
 
-SimpleReachAnalysis::ValueState
-SimpleReachAnalysis::getReachingInputsRec(const Value *v, InputSet &Inputs) {
-
-  StateMap::iterator SMIt = ValueToState.find(v);
-  if (SMIt != ValueToState.end()) {
-    enum ValueState State = SMIt->second;
-
-    assert(ValueToInputs.find(v) != ValueToInputs.end() &&
-           "SimpleReachAnalysis: No reaching input set for value with state.");
-
-    InputSet &ReachingInputs = ValueToInputs[v];
-
-
-    switch (State) {
-      case Completed:
-      {
-        Inputs.insert<InputSet::iterator>(ReachingInputs.begin(),
-                                          ReachingInputs.end());
-        return Completed;
-      }
-
-      case InProgress:
-        return InProgress;
-
-      case Incomplete:
-      {
-        // 0. change state of v to InProgress
-        ValueToState[v] = InProgress;
-
-        // 1. explore remaining values found in ValueToRemainingOps[v]
-        // 2. all inputs returned from rec calls are added to ValueToInputs[v]
-        IncompleteMap::iterator IMIt = ValueToRemainingOps.find(v);
-        assert(IMIt != ValueToRemainingOps.end() &&
-               "SimpleReachAnalysis: No incomplete set for incomplete value.");
-
-        ValuePtrSet &Remaining = IMIt->second;
-        assert(!Remaining.empty() &&
-               "SimpleReachAnalysis: Empty incomplete set for incomplete value.");
-
-        bool stillIncomplete = false;
-        ValuePtrSet NewlyCompleted;
-
-        ValuePtrSet::iterator It = Remaining.begin(), ItEnd = Remaining.end();
-        for (; It != ItEnd; ++It) {
-          const Value *remV = *It;
-          ValueState resState = getReachingInputsRec(remV, ReachingInputs);
-          if (resState == Completed)
-            NewlyCompleted.insert(remV);
-          else
-            stillIncomplete = true;
-        }
-
-        Inputs.insert<InputSet::iterator>(ReachingInputs.begin(),
-                                          ReachingInputs.end());
-
-        // 3. if all rec calls return Completed,
-        // 4.   change state of v to Completed and
-        //      return (Completed, ValueToInputs[v])
-        if (!stillIncomplete) {
-          ValueToState[v] = Completed;
-          ValueToRemainingOps.erase(v); 
-          return Completed;
-        }
-
-        // 5. else, change state of v to Incomplete, remove newly completed
-        //          remaining values, and return (Incomplete, ValueToInputs[v])
-        ValueToState[v] = Incomplete;
-        
-        ValuePtrSet::iterator NCIt = NewlyCompleted.begin(),
-                              NCItEnd = NewlyCompleted.end();
-        for (; It != NCItEnd; ++NCIt)
-          Remaining.erase(*NCIt);
-
-        return Incomplete;
-      }
-    }
-  }
-
-  // No state was found for v
-  assert(ValueToInputs.find(v) == ValueToInputs.end() &&
-         "SimpleReachAnalysis: Reaching input set found "
-         "for value with no state.");
-  assert(ValueToRemainingOps.find(v) == ValueToRemainingOps.end() &&
-         "SimpleReachAnalysis: Incomplete set found for value with no state.");
-
-  // 0. if v is an input value (command line arg, external call result, constant, etc),
-  // 1.   add it to Inputs, return (Completed, Inputs)
-  if (isInput(v)) {
-    Inputs.insert(v);
-    return Completed;
-  }
-
-  // 2. else, find Immediate Successor values
-  ValuePtrSet Successors;
-  getImmediateSuccessors(v, Successors);
-
-  // 3. set state of v to InProgress
-  ValueToState[v] = InProgress;
-
-  // 4. for each successor, rec call
-  // 5. all inputs returned from rec calls are added to ValueToInputs[v]
-  InputSet FoundInputs;
-  ValuePtrSet Remaining; 
-  bool incomplete = false;
-
-  ValuePtrSet::iterator It = Successors.begin(), ItEnd = Successors.end();
-  for (; It != ItEnd; ++It) {
-    const Value *succV = *It;
-    ValueState resState = getReachingInputsRec(succV, FoundInputs);
-    if (resState != Completed) {
-      incomplete = true;
-      Remaining.insert(succV);
-    }
-  }
-
-  ValueToInputs[v] = FoundInputs;
-  Inputs.insert<InputSet::iterator>(FoundInputs.begin(), FoundInputs.end());
-
-  // 3. if all rec calls return Completed, change state of v to Completed and
-  //                                       return Completed
-  if (!incomplete) {
-    ValueToState[v] = Completed;
-    return Completed;
-  }
-
-  // 4. else, change state of v to Incomplete and return Incomplete
-  ValueToState[v] = Incomplete;
-  ValueToRemainingOps[v] = Remaining;
-  return Incomplete;
+bool SimpleReachAnalysis::getReachingInputs(const Value *v, InputSet &Inputs) {
+  return false;
 }
 
 }

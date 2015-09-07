@@ -6,6 +6,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include <set>
+#include <vector>
 
 namespace symbexchecks {
 
@@ -13,48 +14,64 @@ namespace symbexchecks {
 // discovers which inputs reach a specific LLVM value.
 class SimpleReachAnalysis : public llvm::ModulePass {
 private:
-  // Useful set type definitions.
+  // struct holding a memory write instruction
+  struct MemoryWrite {
+    llvm::Instruction *inst;
+    llvm::Value *ptr;
+    llvm::Value *val;
+  };
+
+  struct mwcomp {
+    bool operator() (const struct MemoryWrite& lhs,
+                     const struct MemoryWrite& rhs) const {
+      return lhs.inst < rhs.inst;
+    }
+  };
+
+  // Useful type definitions.
+  typedef std::vector<const llvm::Value *> IndexToValueVector;
+  typedef IndexToValueVector::size_type index_t;
+  typedef llvm::ValueMap<const llvm::Value *, index_t> ValueToIndexMap;
+  typedef std::set<struct MemoryWrite, mwcomp> MemoryWriteSet;
   typedef std::set<const llvm::Value *> InputSet;
-  typedef llvm::SmallPtrSet<const llvm::Value *, 8> ValuePtrSet;
+  typedef std::set<const llvm::Value *> ValuePtrSet;
+  typedef llvm::ValueMap<const llvm::Value *, InputSet> ReachMap;
 
   // Map from a value to the inputs affecting the value.
-  typedef llvm::ValueMap<const llvm::Value *, InputSet> ReachMap;
   ReachMap ValueToInputs;
 
-  // Map from a value to the values that need to be revisited to
-  // produce a complete set of inputs affecting the value.
-  typedef llvm::ValueMap<const llvm::Value *, ValuePtrSet> IncompleteMap;
-  IncompleteMap ValueToRemainingOps;
-
-  // Map from a value to its state:
-  //   Completed  -> the inputs affecting the value can be found
-  //                 from ValueToInputs
-  //   InProgress -> inputs affecting this value are currently being
-  //                 collected - the inputs found in ValueToInputsMap
-  //                 are a partial result
-  //   Incomplete -> not all inputs affecting this value have been
-  //                 collected - use ValueToRemainingOps to find
-  //                 the operands that still need to be revisited
-  enum ValueState { Completed, InProgress, Incomplete };
-  typedef llvm::ValueMap<const llvm::Value *, enum ValueState> StateMap;
-  StateMap ValueToState;
+  // Set of memory write instructions.
+  MemoryWriteSet MemoryWrites;
 
   // Returns false, when v is not affected by any other values, otherwise
   // the values that directly affect the definition of v are inserted into
   // the Successors argument and true is returned.
   bool getImmediateSuccessors(const llvm::Value *v, ValuePtrSet &Successors);
 
-  bool isInput(const llvm::Value *v);
-  
+  // This method actually runs the reachability analysis and populates the
+  // ValueToInputs map with the result.
+  void findReachingInputs(llvm::Module &M);
+
   // Returns false when no reaching input to v is found, otherwise
   // the reaching inputs are inserted into the Inputs argument
   // and true is returned.
   bool getReachingInputs(const llvm::Value *v, InputSet &Inputs);
 
-  // Helper recursive function for input discovery. 
-  enum ValueState getReachingInputsRec(const llvm::Value *v, InputSet &Inputs);
+  // Helper method that collects instructions that write to memory
+  // into the MemoryWrites field of this class.
+  void collectMemoryWrites(llvm::Module &M);
   
-  void printInputs(const llvm::Value *v, llvm::raw_ostream &O);
+  // Helper method that enumerates all the reachability graph nodes
+  // (instructions, globals, and formal arguments). It creates a mapping
+  // from values to indicies and its inverse.
+  void enumerateReachNodes(llvm::Module &M, IndexToValueVector &ValueOf,
+                           ValueToIndexMap &IndexOf);
+
+  bool isInput(const llvm::Value *v);
+  
+  void printReachNodes(llvm::raw_ostream &O, IndexToValueVector &ValueOf,
+                       ValueToIndexMap &IndexOf);
+  void printInputs(llvm::raw_ostream &O, const llvm::Value *v);
 
 public:
   // Pass related
