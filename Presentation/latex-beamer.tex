@@ -209,11 +209,31 @@
     struct S* z;
   
     klee_make_symbolic(&x, sizeof(x), "X");
-    /*
-    **  Without the following klee_assume, the dereference z->x  gets resolved to many
-    **  spurious memory objects. 
-    **  Generated in-bound constraints on the fly to prevent this.
-    */
+  
+    z   = &data[x];
+    ... = z->member ; 
+
+    return 0;
+  }
+\end{lstlisting}
+}
+
+\defverbatim[colored]\lstIITWO{
+\begin{lstlisting}[language=C++,basicstyle=\tiny,keywordstyle=\color{red},frame=trBL]
+  struct S {
+    int member; 
+  };
+  struct S data[] =
+  {
+    { 1,2 },
+    { 3,4 },
+  };
+  int main(int argc, char** argv) 
+  {
+    int x= 0 ;
+    struct S* z;
+  
+    klee_make_symbolic(&x, sizeof(x), "X");
     klee_assume(x >= 0 &  x <= 1 );
   
     z   = &data[x];
@@ -398,6 +418,10 @@
 {
   \frametitle{\secname}
   \begin{itemize} [<+->]
+    \cmt{
+      As it mentioned that we are trying to device a debugger for  static analysis. The static analysis 
+        that we are currently dealing with is pointer analysis
+    }
     \item Implementation for checking an LLVM Alias Analysis (including tbaa, basicaa)
     \vspace{1cm}
     \item Checks incorporated within zesti
@@ -480,6 +504,22 @@
 
 }
 
+\subsection{Implicitly adding klee\_assumes}
+\frame
+{
+  \frametitle{\subsecname}
+  \lstIITWO
+    \cmt{
+    Without the klee_assume, the dereference z->x may get resolved to many
+      spurious memory objects. But while dealing with pointer analysis results
+      we assume that the index of gptr is within bounds and as a result we are
+      getting false positives that (The set of allocation sites corresponding
+          to the memory object of the load address, z->x) is NOT a subset of
+      (Points to allocation sites for the load address z->x) 
+    }
+
+}
+
 \subsection{Importance of choosing a variable as symbolic}
 \frame
 {
@@ -496,7 +536,7 @@
     \item Explicitly specifying which variables to make symbolic is difficult. 
     \vspace{1cm}
     \begin{itemize}
-      \item Instrumented the code by inserting appropriate klee\_make\_symbolic.
+      \item Instrumented the code by inserting klee\_make\_symbolic.
       \item Rechability Analysis to figure out candidates to be made symbolic.
     \end{itemize}
   \end{itemize}
@@ -510,11 +550,24 @@
 }
 
 
-\subsection{Bug Found in LLVM BasicAA}
+\subsection{Conclusion}
 \frame
 {
   \frametitle{\subsecname}
-  \lstIII
+  \begin{itemize}
+    \item Directly debugging the pointer analysis.
+      \cmt{
+        Any failure is check is the direct evidence that the bug is in the static analysis, not anywhere else like in client code.
+      }
+    \item Provides more exhaustive way to test the static analysis.
+      \cmt{
+ the symbolic execution explores many possible execution paths of the test program
+      }
+    \item Test on large programs.
+      \cmt{
+         which are more likely to uncover new bugs
+      }
+  \end{itemize}
 }
 
 \section{Questions?}
