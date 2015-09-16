@@ -1405,7 +1405,7 @@ void Executor::stepInstruction(ExecutionState &state) {
   //if (DebugPrintAAChecks) {
   //printFileLine(state, state.pc);
   //std::cerr << std::setw(10) << stats::instructions << " ";
-  //llvm::errs() << *(state.pc->inst);
+  //llvm::errs() << *(state.pc->inst)<<"\n";
   ////std::cerr << " \n";
   //}
 
@@ -1672,7 +1672,7 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
-static void  dumpExpr(const char* msg, ref<Expr> base)
+void  dumpExpr(const char* msg, ref<Expr> base)
 {
    std::string str;
    std::stringstream rso(str);
@@ -1680,6 +1680,7 @@ static void  dumpExpr(const char* msg, ref<Expr> base)
    klee_message("AACHECKS: %s ", msg );
    klee_message("AACHECKS: %s ", rso.str().c_str());
 }
+
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
@@ -3880,21 +3881,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = state.constraints.simplifyExpr(value);
   }
 
-  // If this is a read, perform an alias/pointer check.
-  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
-    // Collect memory objects that may be pointed by the address pointer
-    // in this state
-    ResolutionList rl;
-    solver->setTimeout(stpTimeout);
-    if (state.addressSpace.resolve(state, solver, address, rl,
-                                   0, stpTimeout, false)) {
-      terminateStateEarly(state, "Query timed out (resolve).");
-    }
-    solver->setTimeout(0);
-
-    aliasChecker(state, address, target, rl);
-  }
-
   // when using concrete-path, overwrite the address with the concrete value but keep the symbolic
   // expr for bounds checking
 
@@ -3946,6 +3932,16 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     }
 
     if (inBounds) {
+      
+      // If this is a read, perform an alias/pointer check.
+      if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+        // Collect memory objects that may be pointed by the address pointer
+        // in this state
+        ResolutionList rl;
+        rl.push_back(op);
+        aliasChecker(state, address, target, rl);
+      }
+
       const ObjectState *os = op.second;
       if (MaxSymArraySize && mo->size >= MaxSymArraySize) {
         address = toConstant(state, address, "max-sym-array-size");
@@ -3979,6 +3975,12 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   bool incomplete = state.addressSpace.resolve(state, solver, address, rl,
                                                0, stpTimeout, false);
   solver->setTimeout(0);
+
+  // If this is a read, perform an alias/pointer check.
+  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+    aliasChecker(state, address, target, rl);
+  }
+
 
   // XXX there is some query wasteage here. who cares?
   ExecutionState *unbound = &state;
