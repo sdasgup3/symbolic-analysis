@@ -60,6 +60,48 @@ bool AAChecksInterface::runOnModule(Module &M) {
 
   //Collector.printPointers(errs());
 
+
+  // populating the alias query caches - for now the pointers
+  // that can be used as keys in the caches are only pointers
+  // found as agruments of load instructions.
+  Module::iterator it = M.begin(), itEnd = M.end();
+  for (; it != itEnd; ++it) {
+    const Function *f = &*it;
+
+    const symbexchecks::PointerCollector::PointerSet &Pointers =
+      getPointerSetForFunction(f);
+
+    Function::const_iterator bbIt = f->begin(), bbItEnd = f->end();
+    for (; bbIt != bbItEnd; ++bbIt) {
+      const BasicBlock *bb = &*bbIt;
+
+      BasicBlock::const_iterator instIt = bb->begin(), instItEnd = bb->end();
+      for (; instIt != instItEnd; ++instIt) {
+        const Instruction *inst = &*instIt;
+        if (const LoadInst *loadInst = dyn_cast<LoadInst>(inst)) {
+          const Value *base = loadInst->getPointerOperand();
+
+          if (MayNotAliasCache.find(base) != MayNotAliasCache.end())
+            continue;
+          assert(MustAliasCache.find(base) == MustAliasCache.end());
+
+          PtrList &mayNotList = MayNotAliasCache[base];
+          PtrList &mustList = MustAliasCache[base];
+
+          symbexchecks::PointerCollector::PointerSet::iterator
+            ptrsIt = Pointers.begin(), ptrsItEnd = Pointers.end();
+          for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
+            const Value *ptr = *ptrsIt;
+            if (mayAlias(base, ptr) == false)
+              mayNotList.push_back(ptr);
+            if (mustAlias(base, ptr) == true)
+              mustList.push_back(ptr);
+          }
+        }
+      }
+    }
+  }
+
   // does not modify module.
   return false;
 }
@@ -81,6 +123,20 @@ bool AAChecksInterface::mustAlias(const llvm::Value *V1, const llvm::Value *V2) 
 
   AliasAnalysis::AliasResult res = AA->alias(V1, V2);
   return res == AliasAnalysis::PartialAlias || res == AliasAnalysis::MustAlias;
+}
+
+SymbExChecksInterface::PtrList &
+AAChecksInterface::getMayNotAliasList(const Value *V) {
+  AliasCache::iterator it = MayNotAliasCache.find(V);
+  assert(it != MayNotAliasCache.end());
+  return it->second;
+}
+
+SymbExChecksInterface::PtrList &
+AAChecksInterface::getMustAliasList(const Value *V) {
+  AliasCache::iterator it = MustAliasCache.find(V);
+  assert(it != MustAliasCache.end());
+  return it->second;
 }
 
 }

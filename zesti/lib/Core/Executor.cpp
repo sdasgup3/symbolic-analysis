@@ -3863,6 +3863,129 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
   }
 }
 
+void
+Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
+                             KInstruction *target, ResolutionList rl)
+{
+
+  // Get the LLVM value for the dereferenced pointer.
+  const Value *base =
+    dyn_cast<LoadInst>(target->inst)->getPointerOperand();
+
+  std::string msg_str;
+  llvm::raw_string_ostream rso(msg_str);
+
+  rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
+  rso << "AACHECKS: Performing alias checks for the "
+         "dereferenced pointer" << *(base) << "\n";
+
+  // Get the parent function.
+  Function *parentFunc =
+    dyn_cast<LoadInst>(target->inst)->getParent()->getParent();
+  KFunction *kparentFunc = kmodule->functionMap[parentFunc];
+
+  // Get all the may-not-alias pointers in the parent function.
+  const symbexchecks::SymbExChecksInterface::PtrList &MayNotPointers =
+    aainterface->getMayNotAliasList(base);
+
+  // Get all the must-alias pointers in the parent function.
+  const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
+    aainterface->getMustAliasList(base);
+
+  // Perform an alias check with each found pointer.
+  bool allChecksSucceeded = true;
+  for (unsigned iter = 0; iter < 2; ++iter) {
+    bool mustAlias = iter == 1;
+    bool mayNotAlias = iter == 0;
+    const symbexchecks::SymbExChecksInterface::PtrList &Pointers =
+      mustAlias ? MustPointers : MayNotPointers;
+
+    for (unsigned i = 0; i < Pointers.size(); ++i) {
+      const Value *ptr = Pointers[i];
+
+      // Find the symbolic value of the pointer expression, and if found,
+      // resolve it to memory objects.
+      ref<Expr> ptrAddress;
+      if (const Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
+        KInstruction *kptrInst = kparentFunc->instToKInstMap[ptrInst];
+        ptrAddress = getDestCell(state, kptrInst).value;
+        if (ptrAddress.isNull()) continue;
+      }
+      else if (const Constant *ptrConst = dyn_cast<Constant>(ptr)) {
+        ptrAddress = evalConstant(ptrConst);
+      }
+      else if (const Argument *ptrArg = dyn_cast<Argument>(ptr)) {
+        unsigned argIndex = ptrArg->getArgNo();
+        ptrAddress = getArgumentCell(state, kparentFunc, argIndex).value;
+      }
+      else
+        assert(false && "Unexpected case for local pointer!");
+
+      ResolutionList ptrRl;
+      solver->setTimeout(stpTimeout);
+      if (state.addressSpace.resolve(state, solver, ptrAddress, ptrRl,
+                                     0, stpTimeout, false)) {
+        terminateStateEarly(state, "Query timed out (resolve).");
+      }
+      solver->setTimeout(0);
+
+      // Perform the checks.
+      if (DebugPrintAAChecks) {
+        rso << "AACHECKS: The dereferenced pointer " << *base <<
+               (mustAlias ? " must" : " may not") <<
+               " alias with the pointer " << *ptr << ". Checking ...\n";
+      }
+
+
+      bool checkSatisfied = false;
+      bool foundBoth = false;
+      ResolutionList::iterator rlIt = rl.begin(), rlItEnd = rl.end();
+      for (; rlIt != rlItEnd && !checkSatisfied; ++rlIt) {
+        const MemoryObject *baseMObj = rlIt->first;
+
+        ResolutionList::iterator ptrRlIt = ptrRl.begin(),
+                                 ptrRlItEnd = ptrRl.end();
+        for (; ptrRlIt != ptrRlItEnd && !checkSatisfied; ++ptrRlIt) {
+          const MemoryObject *ptrMObj = ptrRlIt->first;
+
+          foundBoth = true;
+
+          if (mayNotAlias && (ptrMObj != baseMObj)) checkSatisfied = true;
+          if (mustAlias && (ptrMObj == baseMObj)) checkSatisfied = true;
+        }
+      }
+
+      if (!foundBoth) {
+        if (DebugPrintAAChecks) {
+          rso << "AACHECKS: The second pointer did not resolve to "
+                 "a memory object (maybe a function pointer).\n";
+        }
+        continue;
+      }
+
+      if (checkSatisfied) {
+        if (DebugPrintAAChecks) {
+          rso << "AACHECKS: Check succeeded.\n";
+        }
+      }
+      else {
+        rso << "AACHECKS: Failed alias analysis check!\n";
+        allChecksSucceeded = false;
+      }
+    }
+
+  }
+
+  if (!allChecksSucceeded) {
+    terminateStateOnError(state, rso.str().c_str(), "aachecks");
+  }
+  else {
+    if (DebugPrintAAChecks) {
+      //klee_message("%s", rso.str().c_str());
+    }
+  }
+}
+
 void Executor::executeMemoryOperation(ExecutionState &state,
                                       bool isWrite,
                                       ref<Expr> address,
@@ -3939,7 +4062,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         // in this state
         ResolutionList rl;
         rl.push_back(op);
-        aliasChecker(state, address, target, rl);
+        aliasCheckerCached(state, address, target, rl);
       }
 
       const ObjectState *os = op.second;
@@ -3978,7 +4101,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
 
   // If this is a read, perform an alias/pointer check.
   if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
-    aliasChecker(state, address, target, rl);
+    aliasCheckerCached(state, address, target, rl);
   }
 
 

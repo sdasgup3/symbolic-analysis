@@ -42,9 +42,16 @@ public:
   SymbExChecksInterface() : llvm::ModulePass(ID) {}
   SymbExChecksInterface(char &id) : llvm::ModulePass(id) {}
 
-  // Alias queries for two given values. Should be implemented by the subclasses.
+  // Alias queries for two given values. Should be implemented by the
+  // subclasses.
   virtual bool mayAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
   virtual bool mustAlias(const llvm::Value *V1, const llvm::Value *V2)=0;
+
+  // Alias queries for a single value. Should be implemented by the
+  // subclasses.
+  typedef std::vector<const llvm::Value *> PtrList;
+  virtual PtrList &getMayNotAliasList(const llvm::Value *V)=0;
+  virtual PtrList &getMustAliasList(const llvm::Value *V)=0;
 
   // Accessors for the visitor.
   const PointerCollector::PointerSet &

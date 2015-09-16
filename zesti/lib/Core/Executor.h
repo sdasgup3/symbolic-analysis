@@ -285,6 +285,8 @@ private:
                       KInstruction *target, ResolutionList rl);
   void aliasChecker(ExecutionState &state, ref<Expr> address,
                     KInstruction *target, ResolutionList rl);
+  void aliasCheckerCached(ExecutionState &state, ref<Expr> address,
+                          KInstruction *target, ResolutionList rl);
 
   void executeMakeSymbolic(ExecutionState &state, const MemoryObject *mo,
                            const std::string &name);

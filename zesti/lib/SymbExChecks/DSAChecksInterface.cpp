@@ -93,4 +93,16 @@ DSAChecksInterface::mustAlias(const llvm::Value *V1, const llvm::Value *V2) {
   return false;
 }
 
+SymbExChecksInterface::PtrList &
+DSAChecksInterface::getMayNotAliasList(const Value *V) {
+  PtrList l;
+  return l;
+}
+
+SymbExChecksInterface::PtrList &
+DSAChecksInterface::getMustAliasList(const Value *V) {
+  PtrList l;
+  return l;
+}
+
 }

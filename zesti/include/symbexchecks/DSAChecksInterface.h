@@ -25,6 +25,8 @@ public:
   // SymbExChecksInterface implementation methods
   bool mayAlias(const llvm::Value *V1, const llvm::Value *V2);
   bool mustAlias(const llvm::Value *V1, const llvm::Value *V2);
+  PtrList &getMayNotAliasList(const llvm::Value *V);
+  PtrList &getMustAliasList(const llvm::Value *V);
 };
 
 }
