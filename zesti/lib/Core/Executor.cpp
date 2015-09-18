@@ -112,6 +112,7 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
+#define _DEBUG_AA_CHECKS_ 0
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
 unsigned PatchCheckBefore;
@@ -3875,9 +3876,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   std::string msg_str;
   llvm::raw_string_ostream rso(msg_str);
 
+#if _DEBUG_AA_CHECKS_  
   rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
   rso << "AACHECKS: Performing alias checks for the "
          "dereferenced pointer" << *(base) << "\n";
+#endif  
 
   // Get the parent function.
   Function *parentFunc =
@@ -3929,12 +3932,14 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       }
       solver->setTimeout(0);
 
+#if _DEBUG_AA_CHECKS_  
       // Perform the checks.
       if (DebugPrintAAChecks) {
         rso << "AACHECKS: The dereferenced pointer " << *base <<
                (mustAlias ? " must" : " may not") <<
                " alias with the pointer " << *ptr << ". Checking ...\n";
       }
+#endif      
 
 
       bool checkSatisfied = false;
@@ -3956,34 +3961,43 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       }
 
       if (!foundBoth) {
+#if _DEBUG_AA_CHECKS_  
         if (DebugPrintAAChecks) {
           rso << "AACHECKS: The second pointer did not resolve to "
                  "a memory object (maybe a function pointer).\n";
         }
+#endif
         continue;
       }
 
+#if _DEBUG_AA_CHECKS_  
       if (checkSatisfied) {
         if (DebugPrintAAChecks) {
           rso << "AACHECKS: Check succeeded.\n";
         }
-      }
-      else {
+      } else {
         rso << "AACHECKS: Failed alias analysis check!\n";
         allChecksSucceeded = false;
       }
+#else
+      if (!checkSatisfied) {
+        allChecksSucceeded = false;
+      }
+#endif      
     }
 
   }
 
   if (!allChecksSucceeded) {
-    terminateStateOnError(state, rso.str().c_str(), "aachecks");
+    terminateStateOnError(state, "Alias Analysis Error", "aachecks");
   }
+#if _DEBUG_AA_CHECKS_  
   else {
     if (DebugPrintAAChecks) {
-      //klee_message("%s", rso.str().c_str());
+      klee_message("%s", rso.str().c_str());
     }
   }
+#endif      
 }
 
 void Executor::executeMemoryOperation(ExecutionState &state,
