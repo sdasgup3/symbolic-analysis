@@ -3875,9 +3875,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   std::string msg_str;
   llvm::raw_string_ostream rso(msg_str);
 
-  rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
-  rso << "AACHECKS: Performing alias checks for the "
-         "dereferenced pointer" << *(base) << "\n";
+  if (DebugPrintAAChecks) {
+    rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
+    rso << "AACHECKS: Performing alias checks for the "
+           "dereferenced pointer" << *(base) << "\n";
+  }
 
   // Get the parent function.
   Function *parentFunc =
@@ -3969,7 +3971,9 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         }
       }
       else {
-        rso << "AACHECKS: Failed alias analysis check!\n";
+        if (DebugPrintAAChecks) {
+          rso << "AACHECKS: Failed alias analysis check!\n";
+        }
         allChecksSucceeded = false;
       }
     }
@@ -3977,11 +3981,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   }
 
   if (!allChecksSucceeded) {
-    terminateStateOnError(state, rso.str().c_str(), "aachecks");
+    terminateStateOnError(state, "Alias Analysis Error", "aachecks");
   }
   else {
     if (DebugPrintAAChecks) {
-      //klee_message("%s", rso.str().c_str());
+      klee_message("%s", rso.str().c_str());
     }
   }
 }
