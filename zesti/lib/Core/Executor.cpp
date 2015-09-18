@@ -112,7 +112,9 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
-#define _DEBUG_AA_CHECKS_ 0
+unsigned int numMayNotAliasChecks = 0;
+unsigned int numMustAliasChecks = 0;
+#define  _DEBUG_AA_CHECKS_  0
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
 unsigned PatchCheckBefore;
@@ -3814,7 +3816,6 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
           const MemoryObject *ptrMObj = ptrRlIt->first;
 
           foundBoth = true;
-
           if (mayNotAlias && (ptrMObj != baseMObj)) checkSatisfied = true;
           if (mustAlias && (ptrMObj == baseMObj)) checkSatisfied = true;
         }
@@ -3873,19 +3874,14 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   const Value *base =
     dyn_cast<LoadInst>(target->inst)->getPointerOperand();
 
+#if _DEBUG_AA_CHECKS_  
   std::string msg_str;
   llvm::raw_string_ostream rso(msg_str);
 
-#if _DEBUG_AA_CHECKS_  
   rso << "AACHECKS: Analysing Instruction" << *(target->inst) << "\n";
   rso << "AACHECKS: Performing alias checks for the "
          "dereferenced pointer" << *(base) << "\n";
 #endif  
-
-  // Get the parent function.
-  Function *parentFunc =
-    dyn_cast<LoadInst>(target->inst)->getParent()->getParent();
-  KFunction *kparentFunc = kmodule->functionMap[parentFunc];
 
   // Get all the may-not-alias pointers in the parent function.
   const symbexchecks::SymbExChecksInterface::PtrList &MayNotPointers =
@@ -3895,6 +3891,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
     aainterface->getMustAliasList(base);
 
+  // Get the parent function.
+  Function *parentFunc =
+    dyn_cast<LoadInst>(target->inst)->getParent()->getParent();
+  KFunction *kparentFunc = kmodule->functionMap[parentFunc];
+
   // Perform an alias check with each found pointer.
   bool allChecksSucceeded = true;
   for (unsigned iter = 0; iter < 2; ++iter) {
@@ -3902,6 +3903,8 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
     bool mayNotAlias = iter == 0;
     const symbexchecks::SymbExChecksInterface::PtrList &Pointers =
       mustAlias ? MustPointers : MayNotPointers;
+
+    int counter = 0;
 
     for (unsigned i = 0; i < Pointers.size(); ++i) {
       const Value *ptr = Pointers[i];
@@ -3911,6 +3914,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       ref<Expr> ptrAddress;
       if (const Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
         KInstruction *kptrInst = kparentFunc->instToKInstMap[ptrInst];
+        if(NULL == kptrInst) continue;
         ptrAddress = getDestCell(state, kptrInst).value;
         if (ptrAddress.isNull()) continue;
       }
@@ -3955,6 +3959,13 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
 
           foundBoth = true;
 
+          
+#if _DEBUG_AA_CHECKS_  
+          if (DebugPrintAAChecks) {
+            rso << "base - prt: " << baseMObj << " - " << ptrMObj << "\n";
+          }
+#endif
+          counter ++;
           if (mayNotAlias && (ptrMObj != baseMObj)) checkSatisfied = true;
           if (mustAlias && (ptrMObj == baseMObj)) checkSatisfied = true;
         }
@@ -3970,6 +3981,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         continue;
       }
 
+
 #if _DEBUG_AA_CHECKS_  
       if (checkSatisfied) {
         if (DebugPrintAAChecks) {
@@ -3984,6 +3996,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         allChecksSucceeded = false;
       }
 #endif      
+      if(mustAlias) {
+        numMustAliasChecks += counter; 
+      } else {
+        numMayNotAliasChecks += counter;
+      }
     }
 
   }
@@ -4397,6 +4414,8 @@ int Executor::runFunctionAsMain(Function *f,
 
   if (statsTracker)
     statsTracker->done();
+
+  klee_message("MayChecks %d\nMust Checks %d\n",numMayNotAliasChecks, numMustAliasChecks );  
 
   return programExitCode;
 }
