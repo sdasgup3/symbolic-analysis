@@ -1796,9 +1796,9 @@ int main(int argc, char **argv, char **envp) {
 
     // Also add a reachability analysis pass to assist choosing
     // symbolic variables.
-    symbexchecks::SimpleReachAnalysis *simplereach =
-      new symbexchecks::SimpleReachAnalysis();
-    Passes.add(simplereach);
+    //symbexchecks::SimpleReachAnalysis *simplereach =
+    //  new symbexchecks::SimpleReachAnalysis();
+    //Passes.add(simplereach);
 
     Passes.run(*mainModule);
 
