@@ -3729,6 +3729,7 @@ void Executor::pointerChecker(ExecutionState &state, ref<Expr> address, KInstruc
   }
 }
 
+/* outdated */
 void
 Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
                        KInstruction *target, ResolutionList rl)
@@ -3944,21 +3945,21 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       }
 
 
-      bool checkSatisfied = false;
+      bool checkSatisfied = true;
       bool foundBoth = false;
       ResolutionList::iterator rlIt = rl.begin(), rlItEnd = rl.end();
-      for (; rlIt != rlItEnd && !checkSatisfied; ++rlIt) {
+      for (; rlIt != rlItEnd && checkSatisfied; ++rlIt) {
         const MemoryObject *baseMObj = rlIt->first;
 
         ResolutionList::iterator ptrRlIt = ptrRl.begin(),
                                  ptrRlItEnd = ptrRl.end();
-        for (; ptrRlIt != ptrRlItEnd && !checkSatisfied; ++ptrRlIt) {
+        for (; ptrRlIt != ptrRlItEnd && checkSatisfied; ++ptrRlIt) {
           const MemoryObject *ptrMObj = ptrRlIt->first;
 
           foundBoth = true;
 
-          if (mayNotAlias && (ptrMObj != baseMObj)) checkSatisfied = true;
-          if (mustAlias && (ptrMObj == baseMObj)) checkSatisfied = true;
+          if (mayNotAlias && (ptrMObj == baseMObj)) checkSatisfied = false;
+          if (mustAlias && (ptrMObj != baseMObj)) checkSatisfied = false;
         }
       }
 
@@ -4109,7 +4110,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   solver->setTimeout(0);
 
   // If this is a read, perform an alias/pointer check.
-  if (interpreterOpts.PerformAliasAnalysisChecks && !isWrite) {
+  if (interpreterOpts.PerformAliasAnalysisChecks &&
+      !isWrite && rl.size() > 0) {
     aliasCheckerCached(state, address, target, rl);
   }
 
