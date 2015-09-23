@@ -3881,16 +3881,15 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
            "dereferenced pointer" << *(base) << "\n";
   }
 
-  // Get the parent function.
-  Function *parentFunc =
-    dyn_cast<LoadInst>(target->inst)->getParent()->getParent();
+  // Get the parent function of the dereference.
+  Function *parentFunc = target->inst->getParent()->getParent();
   KFunction *kparentFunc = kmodule->functionMap[parentFunc];
 
-  // Get all the may-not-alias pointers in the parent function.
+  // Get all the may-not-alias pointers.
   const symbexchecks::SymbExChecksInterface::PtrList &MayNotPointers =
     aainterface->getMayNotAliasList(base);
 
-  // Get all the must-alias pointers in the parent function.
+  // Get all the must-alias pointers.
   const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
     aainterface->getMustAliasList(base);
 
@@ -3909,6 +3908,12 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       // resolve it to memory objects.
       ref<Expr> ptrAddress;
       if (const Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
+        if (ptrInst->getParent()->getParent() != parentFunc) {
+          assert(isa<Constant>(base) &&
+                 "Found a cached pair of local pointers from "
+                 "different functions");
+          continue;
+        }
         KInstruction *kptrInst = kparentFunc->instToKInstMap[ptrInst];
         ptrAddress = getDestCell(state, kptrInst).value;
         if (ptrAddress.isNull()) continue;

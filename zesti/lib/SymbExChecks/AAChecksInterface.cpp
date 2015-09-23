@@ -64,6 +64,9 @@ bool AAChecksInterface::runOnModule(Module &M) {
   // populating the alias query caches - for now the pointers
   // that can be used as keys in the caches are only pointers
   // found as agruments of load instructions.
+  const symbexchecks::PointerCollector::PointerSet &GlobalPointers =
+    getGlobalPointerSet();
+
   Module::iterator it = M.begin(), itEnd = M.end();
   for (; it != itEnd; ++it) {
     const Function *f = &*it;
@@ -81,15 +84,31 @@ bool AAChecksInterface::runOnModule(Module &M) {
         if (const LoadInst *loadInst = dyn_cast<LoadInst>(inst)) {
           const Value *base = loadInst->getPointerOperand();
 
-          if (MayNotAliasCache.find(base) != MayNotAliasCache.end())
+          if (!isa<Constant>(base) &&
+              MayNotAliasCache.find(base) != MayNotAliasCache.end()) {
+            assert(isa<Instruction>(base));
+            assert(MustAliasCache.find(base) != MustAliasCache.end());
             continue;
-          assert(MustAliasCache.find(base) == MustAliasCache.end());
+          }
+          assert(isa<Constant>(base) ||
+                 (isa<Instruction>(base) &&
+                  MustAliasCache.find(base) == MustAliasCache.end()));
 
           PtrList &mayNotList = MayNotAliasCache[base];
           PtrList &mustList = MustAliasCache[base];
 
           symbexchecks::PointerCollector::PointerSet::iterator
             ptrsIt = Pointers.begin(), ptrsItEnd = Pointers.end();
+          for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
+            const Value *ptr = *ptrsIt;
+            if (mayAlias(base, ptr) == false)
+              mayNotList.push_back(ptr);
+            if (mustAlias(base, ptr) == true)
+              mustList.push_back(ptr);
+          }
+
+          ptrsIt = GlobalPointers.begin();
+          ptrsItEnd = GlobalPointers.end();
           for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
             const Value *ptr = *ptrsIt;
             if (mayAlias(base, ptr) == false)

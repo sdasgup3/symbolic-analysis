@@ -14,6 +14,13 @@ PointerCollector::PointerCollector() : llvmModule(0) {}
 void PointerCollector::visitModule(Module &M) {
   Pointers.clear();
   llvmModule = &M;
+
+  Module::global_iterator it = M.global_begin(), itEnd = M.global_end();
+  for (; it != itEnd; ++it) {
+    GlobalVariable *gv = &(*it);
+    assert(gv->getType()->isPointerTy());
+    GlobalPointers.insert(gv);
+  }
 }
 
 void PointerCollector::visitFunction(Function &F) {
@@ -35,24 +42,39 @@ void PointerCollector::visitInstruction(Instruction &I) {
   for (; it != itEnd; ++it) {
     Value *op = *it;
     if (op->getType()->isPointerTy() && dyn_cast<ConstantExpr>(op)) {
-      Pointers[f].insert(op);
-      visitConstantExpr(cast<ConstantExpr>(op), f);
+      GlobalPointers.insert(op);
+      visitConstantExpr(cast<ConstantExpr>(op));
     }
   }
 }
 
-void PointerCollector::visitConstantExpr(ConstantExpr *expr, Function *f) {
+void PointerCollector::visitConstantExpr(ConstantExpr *expr) {
   User::op_iterator it = expr->op_begin(), itEnd = expr->op_end();
   for (; it != itEnd; ++it) {
     Value *op = *it;
     if (op->getType()->isPointerTy() && dyn_cast<ConstantExpr>(op)) {
-      Pointers[f].insert(op);
-      visitConstantExpr(cast<ConstantExpr>(op), f);
+      GlobalPointers.insert(op);
+      visitConstantExpr(cast<ConstantExpr>(op));
     }
   }
 }
 
 void PointerCollector::printPointers(raw_ostream &O) {
+  O << "\n======================================================\n";
+  O << "                   Global Pointers\n";
+  O << "------------------------------------------------------\n\n";
+
+  PointerSet::iterator itG = GlobalPointers.begin(),
+                       itGEnd = GlobalPointers.end();
+  for (; itG != itGEnd; ++itG) {
+    const Value *ptr = *itG;
+    O << "\t";
+    ptr->print(O);
+    O << "\n";
+  }
+
+  O << "======================================================\n\n";
+
   O << "\n======================================================\n";
   O << "                   Local Pointers\n";
   O << "------------------------------------------------------\n\n";
@@ -78,6 +100,11 @@ void PointerCollector::printPointers(raw_ostream &O) {
 const PointerCollector::PointerSet &
 SymbExChecksInterface::getPointerSetForFunction(const llvm::Function *F) {
   return Collector.Pointers[F]; 
+}
+
+const PointerCollector::PointerSet &
+SymbExChecksInterface::getGlobalPointerSet() {
+  return Collector.GlobalPointers; 
 }
 
 }

@@ -17,6 +17,7 @@ public:
   typedef llvm::ValueMap<const llvm::Function*, PointerSet> PointerMap;
 
   PointerMap Pointers;
+  PointerSet GlobalPointers;
   llvm::Module *llvmModule;
 
   PointerCollector(void);
@@ -27,7 +28,7 @@ public:
   void printPointers(llvm::raw_ostream &O);
 
 private:
-  void visitConstantExpr(llvm::ConstantExpr *expr, llvm::Function *f);
+  void visitConstantExpr(llvm::ConstantExpr *expr);
 };
 
 // This class defines an interface used by the symbolic execution engine to
@@ -56,6 +57,7 @@ public:
   // Accessors for the visitor.
   const PointerCollector::PointerSet &
   getPointerSetForFunction(const llvm::Function *F);
+  const PointerCollector::PointerSet &getGlobalPointerSet(void);
 };
 
 }
