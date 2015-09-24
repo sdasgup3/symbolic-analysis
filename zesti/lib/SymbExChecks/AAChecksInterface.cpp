@@ -86,13 +86,15 @@ bool AAChecksInterface::runOnModule(Module &M) {
 
           if (!isa<Constant>(base) &&
               MayNotAliasCache.find(base) != MayNotAliasCache.end()) {
-            assert(isa<Instruction>(base));
+            assert(isa<Instruction>(base) || isa<Argument>(base));
             assert(MustAliasCache.find(base) != MustAliasCache.end());
             continue;
           }
           assert(isa<Constant>(base) ||
-                 (isa<Instruction>(base) &&
-                  MustAliasCache.find(base) == MustAliasCache.end()));
+                 ( (isa<Instruction>(base) || isa<Argument>(base))    &&
+                   MustAliasCache.find(base) == MustAliasCache.end()  &&
+                   MayNotAliasCache.find(base) == MayNotAliasCache.end() 
+		   ));
 
           PtrList &mayNotList = MayNotAliasCache[base];
           PtrList &mustList = MustAliasCache[base];
@@ -101,22 +103,44 @@ bool AAChecksInterface::runOnModule(Module &M) {
             ptrsIt = Pointers.begin(), ptrsItEnd = Pointers.end();
           for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
             const Value *ptr = *ptrsIt;
-            if (mayAlias(base, ptr) == false)
+            if (mayAlias(base, ptr) == false) {
               mayNotList.push_back(ptr);
-            if (mustAlias(base, ptr) == true)
+	    }
+            if (mustAlias(base, ptr) == true) {
               mustList.push_back(ptr);
-          }
-
-          ptrsIt = GlobalPointers.begin();
-          ptrsItEnd = GlobalPointers.end();
-          for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
-            const Value *ptr = *ptrsIt;
-            if (mayAlias(base, ptr) == false)
-              mayNotList.push_back(ptr);
-            if (mustAlias(base, ptr) == true)
-              mustList.push_back(ptr);
+	    }
           }
         }
+      }
+    }
+  }
+
+  AliasCache::iterator cacheIt = MayNotAliasCache.begin();
+  AliasCache::iterator cacheItEnd = MayNotAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mayNotList = cacheIt->second;
+    symbexchecks::PointerCollector::PointerSet::iterator 	
+    ptrsIt = GlobalPointers.begin(), ptrsItEnd = GlobalPointers.end();
+    for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
+      const Value *ptr = *ptrsIt;
+      if (mayAlias(base, ptr) == false) {
+        mayNotList.push_back(ptr);
+      }
+    }
+  }
+
+  cacheIt = MustAliasCache.begin();
+  cacheItEnd = MustAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mustList = cacheIt->second;
+    symbexchecks::PointerCollector::PointerSet::iterator 	
+    ptrsIt = GlobalPointers.begin(), ptrsItEnd = GlobalPointers.end();
+    for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
+      const Value *ptr = *ptrsIt;
+      if (mustAlias(base, ptr) == true) {
+        mustList.push_back(ptr);
       }
     }
   }
