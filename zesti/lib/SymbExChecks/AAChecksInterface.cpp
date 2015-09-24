@@ -105,10 +105,10 @@ bool AAChecksInterface::runOnModule(Module &M) {
             const Value *ptr = *ptrsIt;
             if (mayAlias(base, ptr) == false) {
               mayNotList.push_back(ptr);
-	    }
+            }
             if (mustAlias(base, ptr) == true) {
               mustList.push_back(ptr);
-	    }
+            }
           }
         }
       }

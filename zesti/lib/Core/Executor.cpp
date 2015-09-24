@@ -3923,6 +3923,12 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         ptrAddress = evalConstant(ptrConst);
       }
       else if (const Argument *ptrArg = dyn_cast<Argument>(ptr)) {
+        if (ptrArg->getParent() != parentFunc) {
+          assert(isa<Constant>(base) &&
+                 "Found a cached pair of a local pointer and a formal arg "
+                 "from different functions");
+          continue;
+        }
         unsigned argIndex = ptrArg->getArgNo();
         ptrAddress = getArgumentCell(state, kparentFunc, argIndex).value;
       }
