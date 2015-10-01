@@ -1,3 +1,18 @@
+Test	native	Concrete WO checks	Concrete With checks	Symbolic run WO checks	Symbolic run with checks
+N=20 (concrete): Only weights are symbolic (seed = 1)
+		59.40			59.43(49597/1286)		+4hr	
+
+N=9 (concrete): Only weights are symbolic (seed = 1)
+		1.42			1.47(12922/441)			+4hr
+
+Both n and weights are concrete (seeds N=9, weights = 1)
+		6.74(0/0)			20.27(26691/624)	+4hr		
+
+
+
+
+
+
 After Globals are also added to the mayNot and mustAlais lists:
 Test 			native 		jit 	lli		zesti Concrete w/o checks 	zesti concrete w checks 	With H1, H2
 ======================================================================================================================================================
