@@ -27,6 +27,10 @@ public:
   bool mustAlias(const llvm::Value *V1, const llvm::Value *V2);
   PtrList &getMayNotAliasList(const llvm::Value *V);
   PtrList &getMustAliasList(const llvm::Value *V);
+  void setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value);
+  void dumpAuxInfo(llvm::raw_ostream &);
+
+
 };
 
 }

@@ -112,6 +112,8 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
+unsigned int mayNotCounter=0;
+unsigned int mustCounter=0;
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
 unsigned PatchCheckBefore;
@@ -581,7 +583,7 @@ MemoryObject * Executor::addExternalObject(ExecutionState &state,
   MemoryObject *mo = memory->allocateFixed((uint64_t) (unsigned long) addr, 
                                            size, 0);
   ObjectState *os = bindObjectInState(state, mo, false);
-  for(unsigned i = 0; i < size; i++)
+  for(unsigned i = 0; i < size; i++) 
     os->write8(i, ((uint8_t*)addr)[i]);
   if(isReadOnly)
     os->setReadOnly(true);  
@@ -3864,6 +3866,7 @@ Executor::aliasChecker(ExecutionState &state, ref<Expr> address,
   }
 }
 
+
 void
 Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
                              KInstruction *target, ResolutionList rl)
@@ -3894,6 +3897,8 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
     aainterface->getMustAliasList(base);
 
+
+
   // Perform an alias check with each found pointer.
   bool allChecksSucceeded = true;
   for (unsigned iter = 0; iter < 2; ++iter) {
@@ -3902,6 +3907,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
     const symbexchecks::SymbExChecksInterface::PtrList &Pointers =
       mustAlias ? MustPointers : MayNotPointers;
 
+    int counter = 0;
     for (unsigned i = 0; i < Pointers.size(); ++i) {
       const Value *ptr = Pointers[i];
 
@@ -3935,6 +3941,13 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       else
         assert(false && "Unexpected case for local pointer!");
 
+      if (isa<ConstantExpr>(ptrAddress)) {
+        aainterface->setAuxList(base, mustAlias, i, false);
+      } else {
+        //dumpExpr("dsand", ptrAddress);
+        aainterface->setAuxList(base, mustAlias, i, true);
+      }
+        
       ResolutionList ptrRl;
       solver->setTimeout(stpTimeout);
       if (state.addressSpace.resolve(state, solver, ptrAddress, ptrRl,
@@ -3953,6 +3966,12 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
 
       bool checkSatisfied = true;
       bool foundBoth = false;
+      //if(ptrRl.size() > 1 || rl.size() > 1) {
+        //llvm::errs() << rl.size() << " "  << ptrRl.size() <<" " << *base << " "<<  *ptr << "\n";
+	//assert(0 && "Interesting");
+	//klee_message("Interesting ");
+      //}
+
       ResolutionList::iterator rlIt = rl.begin(), rlItEnd = rl.end();
       for (; rlIt != rlItEnd && checkSatisfied; ++rlIt) {
         const MemoryObject *baseMObj = rlIt->first;
@@ -3966,6 +3985,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
 
           if (mayNotAlias && (ptrMObj == baseMObj)) checkSatisfied = false;
           if (mustAlias && (ptrMObj != baseMObj)) checkSatisfied = false;
+	  counter++;
         }
       }
 
@@ -3989,15 +4009,20 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         allChecksSucceeded = false;
       }
     }
-
+    if(mustAlias) {
+      mustCounter += counter;	      
+    } else {
+      mayNotCounter += counter;	      
+    }
   }
 
   if (!allChecksSucceeded) {
-    terminateStateOnError(state, "Alias Analysis Error", "aachecks");
+    //klee_message("%s", rso.str().c_str());
+    //terminateStateOnError(state, "Alias Analysis Error", "aachecks");
   }
   else {
     if (DebugPrintAAChecks) {
-      klee_message("%s", rso.str().c_str());
+      //klee_message("%s", rso.str().c_str());
     }
   }
 }
@@ -4108,6 +4133,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   }
   // we are on an error path (no resolution, multiple resolution, one
   // resolution with out of bounds)
+  //assert(0 && "Multiple Resoluton Path");
+  //klee_message("Multiple Resoluton Path");
 
   ResolutionList rl;  
   solver->setTimeout(stpTimeout);
@@ -4129,6 +4156,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     const MemoryObject *mo = i->first;
     const ObjectState *os = i->second;
     ref<Expr> inBounds = mo->getBoundsCheckPointer(address, bytes);
+
 
     bool symbex = unbound->symbexEnabled;
     enableSeeding(*unbound, 1);
@@ -4219,6 +4247,11 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
       prevVal = readObjectAtAddress(state,
                                     ConstantExpr::create(mo->address,
                                                          Context::get().getPointerWidth()));
+      //std::cout << "\nSeed Value of " << name << " ";							 
+      //for(int i = 0 ; i < prevVal.size(); i++) {							 
+      //  std::cout <<int (prevVal[i]) << " ";							 
+      //}
+      //std::cout << "\n";							 
     }
 
     // Find a unique name for this array.  First try the original name,
@@ -4388,6 +4421,16 @@ int Executor::runFunctionAsMain(Function *f,
   state->ptreeNode = processTree->root;
   closeFirstFds();
   run(*state);
+
+  /* Status Printing*/
+  klee_message("MayNotCounter: %u\nMustCounter: %u\n", mayNotCounter, mustCounter);
+  if (interpreterOpts.PerformAliasAnalysisChecks) {
+    std::string info;
+    llvm::raw_string_ostream rso(info);
+    aainterface->dumpAuxInfo(rso);
+    klee_message("AACHECKS:%s", rso.str().c_str());
+  }
+
   delete processTree;
   processTree = 0;
 

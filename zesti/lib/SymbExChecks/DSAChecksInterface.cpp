@@ -105,4 +105,13 @@ DSAChecksInterface::getMustAliasList(const Value *V) {
   return l;
 }
 
+void
+DSAChecksInterface::setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value) {
+}
+
+void
+DSAChecksInterface::dumpAuxInfo(llvm::raw_ostream &O) {
+}
+
+
 }

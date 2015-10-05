@@ -180,6 +180,30 @@ bool AAChecksInterface::runOnModule(Module &M) {
     }
   }
 
+  /*Initializing the auxiallary Caches*/
+  cacheIt = MayNotAliasCache.begin();
+  cacheItEnd = MayNotAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mayNotList = cacheIt->second;
+
+    int size = mayNotList.size();
+    std::vector<bool> &auxList = MayNotAuxCache[base];
+    auxList.resize(size,false);
+  }
+
+  cacheIt = MustAliasCache.begin();
+  cacheItEnd = MustAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mustList = cacheIt->second;
+
+    int size = mustList.size();
+    std::vector<bool> &auxList = MustAuxCache[base];
+    auxList.resize(size,false);
+  }
+
+
   // does not modify module.
   return false;
 }
@@ -216,5 +240,70 @@ AAChecksInterface::getMustAliasList(const Value *V) {
   assert(it != MustAliasCache.end());
   return it->second;
 }
+
+void 
+AAChecksInterface::setAuxList(const llvm::Value *base, bool updateMustList, int index, bool value) {
+
+  if(false == value) return;
+
+  if(true == updateMustList) {
+    std::vector<bool> &mustList = MustAuxCache[base];
+    mustList[index] = value;
+  } else {  
+    std::vector<bool> &mayNotList = MayNotAuxCache[base];
+    mayNotList[index] = value;
+  }
+}
+
+void
+AAChecksInterface::dumpAuxInfo(llvm::raw_ostream &O) {
+
+  assert(MayNotAliasCache.size() == MayNotAuxCache.size() && "MayNotAliasCache.size() != MayNotAuxCache.size()");
+  assert(MustAliasCache.size()   == MustAuxCache.size() && "MustAliasCache.size() != MustAuxCache.size()");
+
+  AliasCache::iterator cacheIt = MayNotAliasCache.begin();
+  AliasCache::iterator cacheItEnd = MayNotAliasCache.end();
+  int ptr = 0;
+  int symptr = 0;
+
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mayNotList = cacheIt->second;
+
+    std::vector<bool> &auxList = MayNotAuxCache[base];
+    assert(mayNotList.size() == auxList.size() && "mayNotList.size()  != auxList.size()");
+
+    ptr += mayNotList.size(); 
+    for(unsigned  i = 0; i < auxList.size() ; i ++) {
+      if(true == auxList[i]) symptr++;
+    }
+  }
+
+  O << "MayNotAlias: Sym Pointers / Total Pointers: " << symptr << " / " << ptr << "\n";
+
+  cacheIt = MustAliasCache.begin();
+  cacheItEnd = MustAliasCache.end();
+  ptr = 0;
+  symptr = 0;
+
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mustList = cacheIt->second;
+
+    std::vector<bool> &auxList = MustAuxCache[base];
+    assert(mustList.size() == auxList.size() && "mustList.size()  != auxList.size()");
+
+    ptr += mustList.size(); 
+    for(unsigned  i = 0; i < auxList.size() ; i ++) {
+      if(true == auxList[i]) symptr++;
+    }
+  }
+
+  O << "MustAlias: Sym Pointers / Total Pointers:  " << symptr << " / " << ptr << "\n";
+
+
+}
+
+                       
 
 }

@@ -29,6 +29,9 @@ public:
   typedef std::vector<const llvm::Value *> PtrList;
   virtual PtrList &getMayNotAliasList(const llvm::Value *V)=0;
   virtual PtrList &getMustAliasList(const llvm::Value *V)=0;
+  virtual void   setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value)=0;
+  virtual void   dumpAuxInfo(llvm::raw_ostream &)=0;
+
 
   // Accessors for the visitor.
   const PointerCollector::PointerSet &
