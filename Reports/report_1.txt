@@ -1,12 +1,30 @@
-Test	native	Concrete WO checks	Concrete With checks	Symbolic run WO checks	Symbolic run with checks
+  Test		Concrete WO checks	Concrete With checks	Symbolic run WO checks	Symbolic run with checks
+  ==================================================================================================================
+
 N=20 (concrete): Only weights are symbolic (seed = 1)
-		59.40			59.43(49597/1286)		+4hr	
+		59.40			59.43(49597/1286)		+4hr	        4 days +10 hrs
 
 N=9 (concrete): Only weights are symbolic (seed = 1)
-		1.42			1.47(12922/441)			+4hr
+		1.42			1.47(12922/441)			                  4 days +5 hr
 
-Both n and weights are concrete (seeds N=9, weights = 1)
-		6.74(0/0)			20.27(26691/624)	+4hr		
+Both n and weights are symbolic (seeds N=9, weights = 1)
+		6.74(0/0)			20.27(26691/624)	+4hr		  4 days +7 hrs
+
+
+>>Interesting                
+n=3 and weights are symbolic (seed weights = 1)
+                0.04(0/0)               0.06(2127/95)                  14.24(0/0)           15.60 (1640081/80128)
+                                Sym Pointers/Total Pointers:                                  Sym Pointers/Total Pointers:     
+                                           0/791 (mayNot)                                      0/791
+                                           0/154 (must)                                        0/154
+
+Both n and weights are symbolic (seeds N=3, weights = 1)
+                0.84(0/0)               0.94(4056/150)                  174.23(0/0)           202.03 (1821492/82349)
+                                Sym Pointers/Total Pointers:                                  Sym Pointers/Total Pointers:     
+                                          8/876 (mayNot)                                      8/876
+                                          0/155 (must)                                        0/155
+
+
 
 
 
