@@ -3591,7 +3591,7 @@ void Executor::resolveExact(ExecutionState &state,
 void Executor::addSensitiveInstruction(const ExecutionState &state)
 {
   //if(DebugPrintAAChecks) {
-  // llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
+  //llvm::errs() << "SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
   //}
   if (Concolic == stage)
     return;
@@ -3603,6 +3603,7 @@ void Executor::addSensitiveInstruction(const ExecutionState &state)
                          currentInstructionInfo->line);
   } else if (sensitiveInst.empty() || sensitiveInst.back() != (int)state.depth) {
     sensitiveInst.push_back(state.depth);
+    //llvm::errs() << "Actual SensitiveInst: " << *(state.prevPC->inst) << " depth " << state.depth  <<"\n";
     klee_message_to_file("Sensitive instruction (depth %d) @ %s:%d",
                          (int)state.depth,
                          currentInstructionInfo->file.c_str(),
@@ -3897,6 +3898,10 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
     aainterface->getMustAliasList(base);
 
+  /* AAChecks Stats*/
+  if (!isa<ConstantExpr>(address)) {
+    aainterface->updateSymMap(base, true, true);
+  }
 
 
   // Perform an alias check with each found pointer.
@@ -3941,11 +3946,9 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       else
         assert(false && "Unexpected case for local pointer!");
 
-      if (isa<ConstantExpr>(ptrAddress)) {
-        aainterface->setAuxList(base, mustAlias, i, false);
-      } else {
-        //dumpExpr("dsand", ptrAddress);
-        aainterface->setAuxList(base, mustAlias, i, true);
+      /* AAChecks Stats*/
+      if (!isa<ConstantExpr>(ptrAddress)) {
+        aainterface->updateSymMap(ptr, false, true);
       }
         
       ResolutionList ptrRl;
@@ -4427,7 +4430,8 @@ int Executor::runFunctionAsMain(Function *f,
   if (interpreterOpts.PerformAliasAnalysisChecks) {
     std::string info;
     llvm::raw_string_ostream rso(info);
-    aainterface->dumpAuxInfo(rso);
+
+    aainterface->dumpSymMap(rso);
     klee_message("AACHECKS:%s", rso.str().c_str());
   }
 

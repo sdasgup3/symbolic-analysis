@@ -113,5 +113,13 @@ void
 DSAChecksInterface::dumpAuxInfo(llvm::raw_ostream &O) {
 }
 
+void   
+DSAChecksInterface::updateSymMap(const llvm::Value *V, bool updateboth, bool value) {
+}
+
+void   
+DSAChecksInterface::dumpSymMap(llvm::raw_ostream &) {
+}
+
 
 }

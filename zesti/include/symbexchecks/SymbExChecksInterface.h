@@ -31,6 +31,8 @@ public:
   virtual PtrList &getMustAliasList(const llvm::Value *V)=0;
   virtual void   setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value)=0;
   virtual void   dumpAuxInfo(llvm::raw_ostream &)=0;
+  virtual void   updateSymMap(const llvm::Value *V, bool updateboth, bool value) = 0;
+  virtual void   dumpSymMap(llvm::raw_ostream &)=0;
 
 
   // Accessors for the visitor.

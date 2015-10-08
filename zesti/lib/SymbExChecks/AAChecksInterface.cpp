@@ -98,6 +98,8 @@ bool AAChecksInterface::runOnModule(Module &M) {
 
           PtrList &mayNotList = MayNotAliasCache[base];
           PtrList &mustList = MustAliasCache[base];
+          isLoadSymMap[base] = false;
+          isPointerSymMap[base] = false;
 
           symbexchecks::PointerCollector::PointerSet::iterator
             ptrsIt = Pointers.begin(), ptrsItEnd = Pointers.end();
@@ -115,6 +117,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
 	      }
 
               mayNotList.push_back(ptr);
+              isPointerSymMap[ptr] = false;
             }
             if (mustAlias(base, ptr) == true) {
 	      //mustAlias(P1,P2) should not  be true if both are different allocas or both are different globals.	    
@@ -127,6 +130,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
 	      if(base == ptr) continue;
 
               mustList.push_back(ptr);
+              isPointerSymMap[ptr] = false;
             }
           }
         }
@@ -153,6 +157,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
 	}
 
         mayNotList.push_back(ptr);
+        isPointerSymMap[ptr] = false;
       }
     }
   }
@@ -176,11 +181,13 @@ bool AAChecksInterface::runOnModule(Module &M) {
 	if(base == ptr) continue;
 
         mustList.push_back(ptr);
+        isPointerSymMap[ptr] = false;
       }
     }
   }
 
   /*Initializing the auxiallary Caches*/
+  /*
   cacheIt = MayNotAliasCache.begin();
   cacheItEnd = MayNotAliasCache.end();
   for (; cacheIt != cacheItEnd; ++cacheIt) {
@@ -202,8 +209,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
     std::vector<bool> &auxList = MustAuxCache[base];
     auxList.resize(size,false);
   }
-
-
+  */
   // does not modify module.
   return false;
 }
@@ -300,10 +306,43 @@ AAChecksInterface::dumpAuxInfo(llvm::raw_ostream &O) {
   }
 
   O << "MustAlias: Sym Pointers / Total Pointers:  " << symptr << " / " << ptr << "\n";
-
-
 }
 
+void   
+AAChecksInterface::updateSymMap(const llvm::Value *V, bool updateboth, bool value) {
+  if(updateboth) {
+    isLoadSymMap[V] = value;
+  }
+  isPointerSymMap[V] = true;
+}
+
+void   
+AAChecksInterface::dumpSymMap(llvm::raw_ostream &rso) {
+
+   unsigned int size_isPointerSymMap = isPointerSymMap.size();
+   unsigned int count = 0;
+   symPtrMap::iterator symIt = isPointerSymMap.begin();
+   symPtrMap::iterator symItE = isPointerSymMap.end();
+   for (; symIt != symItE; ++symIt) {
+     if(true == symIt->second) {
+       llvm::errs() << *(symIt->first) << "\n";
+       count ++;
+     }
+   }
+   rso << "Sym Pointers/Total Pointers : " << count << "/" <<  size_isPointerSymMap << "\n";
+
+   unsigned int size_isLoadSymMap = isLoadSymMap.size();
+   symIt = isPointerSymMap.begin();
+   symItE = isPointerSymMap.end();
+   count = 0;
+   for (; symIt != symItE; ++symIt) {
+     if(true == symIt->second) {
+       llvm::errs() << *(symIt->first) << "\n";
+       count ++;
+     }
+   }
+   rso << "Sym Load Pointers/Total Load Pointers : " << count << "/" <<  size_isLoadSymMap << "\n";
+}
                        
 
 }

@@ -29,6 +29,8 @@ public:
   PtrList &getMustAliasList(const llvm::Value *V);
   void setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value);
   void dumpAuxInfo(llvm::raw_ostream &);
+  void   updateSymMap(const llvm::Value *V, bool updateboth, bool value);
+  void   dumpSymMap(llvm::raw_ostream &);
 
 
 };

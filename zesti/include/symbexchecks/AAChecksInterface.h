@@ -19,10 +19,15 @@ private:
   // Cache fo query results
   typedef llvm::ValueMap<const llvm::Value *, PtrList> AliasCache;
   typedef llvm::ValueMap<const llvm::Value *, std::vector<bool>> AuxCache;
+  typedef llvm::ValueMap<const llvm::Value *, bool> symPtrMap;
+
+
   AliasCache MustAliasCache;
   AliasCache MayNotAliasCache;
   AuxCache MayNotAuxCache;
   AuxCache MustAuxCache;
+  symPtrMap isPointerSymMap;
+  symPtrMap isLoadSymMap;
 
 public:
   static char ID;
@@ -39,6 +44,8 @@ public:
   PtrList &getMustAliasList(const llvm::Value *V); //cached
   void   setAuxList(const llvm::Value *V, bool updateMustList, int index, bool value);
   void   dumpAuxInfo(llvm::raw_ostream &);
+  void   updateSymMap(const llvm::Value *V, bool updateboth, bool value);
+  void   dumpSymMap(llvm::raw_ostream &);
 };
 
 }
