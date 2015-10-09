@@ -68,9 +68,10 @@ private:
   // This method finds the inputs that affect the values provided
   // in the argument Values. The found inputs are inserted into the
   // Inputs argument.
-  void getReachingInputs(const ValueSet &Values, ValueSet &Inputs) const;
+  void getReachingInputs(const ValueSet &Values, ValueSet &Inputs,
+                         const llvm::Module &M) const;
 
-  bool isInput(const llvm::Value *v) const;
+  bool isInput(const llvm::Value *v, const llvm::Module &M) const;
   
   // Print utilities
   void printValueSet(llvm::raw_ostream &O, const ValueSet &S) const;

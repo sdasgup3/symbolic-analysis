@@ -55,7 +55,7 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
     Values.insert<PointerCollector::PointerSet::iterator>(Ps.begin(),
                                                           Ps.end());
   }
-  getReachingInputs(Values, Inputs);
+  getReachingInputs(Values, Inputs, M);
   errs() << "Reaching Inputs\n";
   printValueSet(errs(), Inputs);
 /*
@@ -170,7 +170,8 @@ void SimpleReachAnalysis::collectMemoryWrites(Module &M) {
           // each of its variadic arguments in the call
           for (unsigned i = 0; i < CalledVFuncs.size(); ++i) {
             const Function *vfunc = CalledVFuncs[i];
-            ImmutableCallSite::arg_iterator it = CS.arg_begin(), itEnd = CS.arg_end();
+            ImmutableCallSite::arg_iterator it = CS.arg_begin(),
+                                            itEnd = CS.arg_end();
             unsigned argno = 0;
             for (; it != itEnd; ++it, ++argno) {
               if (argno < vfunc->arg_size()) continue;
@@ -366,8 +367,10 @@ void SimpleReachAnalysis::visitFunctionCall(const Function *f, CallSite CS) {
 
 }
 
-void SimpleReachAnalysis::getReachingInputs(const ValueSet &Values,
-                                            ValueSet &Inputs) const {
+void
+SimpleReachAnalysis::getReachingInputs(const ValueSet &Values,
+                                       ValueSet &Inputs,
+                                       const Module &M) const {
   std::stack<const Value *> WorkList;
   ValueSet Explored;
 
@@ -389,7 +392,7 @@ void SimpleReachAnalysis::getReachingInputs(const ValueSet &Values,
     Explored.insert(v);
 
     // if v is an input continue
-    if (isInput(v)) {
+    if (isInput(v, M)) {
       Inputs.insert(v);
       continue;
     }
@@ -408,9 +411,28 @@ void SimpleReachAnalysis::getReachingInputs(const ValueSet &Values,
   }
 }
 
-bool SimpleReachAnalysis::isInput(const Value *v) const {
-  // return true for command line arguments, constants, and
-  // external function calls.
+bool SimpleReachAnalysis::isInput(const Value *v, const Module &M) const {
+  // constants are inputs
+  if (isa<Constant>(v)) return true;
+
+  // external functions are inputs
+  if (const Function *f = dyn_cast<Function>(v)) {
+    return (f->isDeclaration());
+  }
+
+  // arguments of main are inputs
+  if (const Argument *arg = dyn_cast<Argument>(v)) {
+
+    llvm::Function* userMain = M.getFunction("__user_main");
+	if (!userMain) {
+		userMain = M.getFunction("main");
+    }
+
+    if (userMain && arg->getParent() == userMain) return true;
+
+    return false;
+  }
+
   return false;
 }
 
