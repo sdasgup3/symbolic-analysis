@@ -1,10 +1,10 @@
 #ifndef SIMPLEREACHANALYSIS_H
 #define SIMPLEREACHANALYSIS_H
 
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/ValueMap.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InstVisitor.h"
 #include "llvm/Pass.h"
+#include <map>
 #include <set>
 #include <vector>
 
@@ -12,11 +12,12 @@ namespace symbexchecks {
 
 // This class implements a reachablity analysis algorithm that
 // discovers which inputs reach a specific LLVM value.
-class SimpleReachAnalysis : public llvm::ModulePass {
+class SimpleReachAnalysis : public llvm::ModulePass,
+                            public llvm::InstVisitor<SimpleReachAnalysis> {
 private:
   // struct holding a memory write instruction
   struct MemoryWrite {
-    llvm::Instruction *inst;
+    llvm::Value *memwrite;
     llvm::Value *ptr;
     llvm::Value *val;
   };
@@ -24,55 +25,57 @@ private:
   struct mwcomp {
     bool operator() (const struct MemoryWrite& lhs,
                      const struct MemoryWrite& rhs) const {
-      return lhs.inst < rhs.inst;
+      return lhs.memwrite == rhs.memwrite ?
+               lhs.val < rhs.val :
+               lhs.memwrite < rhs.memwrite;
     }
   };
 
   // Useful type definitions.
-  typedef std::vector<const llvm::Value *> IndexToValueVector;
-  typedef IndexToValueVector::size_type index_t;
-  typedef llvm::ValueMap<const llvm::Value *, index_t> ValueToIndexMap;
   typedef std::set<struct MemoryWrite, mwcomp> MemoryWriteSet;
-  typedef std::set<const llvm::Value *> InputSet;
-  typedef std::set<const llvm::Value *> ValuePtrSet;
-  typedef llvm::ValueMap<const llvm::Value *, InputSet> ReachMap;
-
-  // Map from a value to the inputs affecting the value.
-  ReachMap ValueToInputs;
+  typedef std::set<const llvm::Function *> FunctionSet;
+  typedef std::set<const llvm::Value *> ValueSet;
+  typedef std::map<const llvm::Value *, ValueSet> ReachGraph;
 
   // Set of memory write instructions.
   MemoryWriteSet MemoryWrites;
 
-  // Returns false, when v is not affected by any other values, otherwise
-  // the values that directly affect the definition of v are inserted into
-  // the Successors argument and true is returned.
-  bool getImmediateSuccessors(const llvm::Value *v, ValuePtrSet &Successors);
+  // Set of functions that are used as function pointers.
+  FunctionSet AddressTakenFunctions;
 
-  // This method actually runs the reachability analysis and populates the
-  // ValueToInputs map with the result.
-  void findReachingInputs(llvm::Module &M);
+  // Initial reachability graph. Each node is an llvm value.
+  // Edges flow from a node to the nodes that directly affect
+  // its value computation.
+  ReachGraph OneStepReachGraph;
 
-  // Returns false when no reaching input to v is found, otherwise
-  // the reaching inputs are inserted into the Inputs argument
-  // and true is returned.
-  bool getReachingInputs(const llvm::Value *v, InputSet &Inputs);
+  // Helper method that collects functions that are used as function
+  // pointers into the AddressTakenFunctions field of this class.
+  void collectAddressTakenFunctions(llvm::Module &M);
 
   // Helper method that collects instructions that write to memory
-  // into the MemoryWrites field of this class.
+  // into the MemoryWrites field of this class. Requires
+  // collectAddressTaken to have been called before.
   void collectMemoryWrites(llvm::Module &M);
   
-  // Helper method that enumerates all the reachability graph nodes
-  // (instructions, globals, and formal arguments). It creates a mapping
-  // from values to indicies and its inverse.
-  void enumerateReachNodes(llvm::Module &M, IndexToValueVector &ValueOf,
-                           ValueToIndexMap &IndexOf);
+  // This method populates the initial reachability graph found in
+  // the field OneStepReachGraph.
+  void initOneStepReachGraph(llvm::Module &M);
 
-  bool isInput(const llvm::Value *v);
+  // Helper method used to add information about a function call to
+  // the OneStepReachGraph
+  void visitFunctionCall(const llvm::Function *f, llvm::CallSite CS);
+
+  // This method finds the inputs that affect the values provided
+  // in the argument Values. The found inputs are inserted into the
+  // Inputs argument.
+  void getReachingInputs(const ValueSet &Values, ValueSet &Inputs) const;
+
+  bool isInput(const llvm::Value *v) const;
   
-  void printReachNodes(llvm::raw_ostream &O, IndexToValueVector &ValueOf,
-                       ValueToIndexMap &IndexOf);
-  void printInputs(llvm::raw_ostream &O, const llvm::Value *v);
-
+  // Print utilities
+  void printValueSet(llvm::raw_ostream &O, const ValueSet &S) const;
+  void printReachGraph(llvm::raw_ostream &O, const ReachGraph &G) const;
+  
 public:
   // Pass related
   static char ID;
@@ -81,6 +84,24 @@ public:
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   const char *getPassName() const;
   bool runOnModule(llvm::Module &M);
+
+  // Overriden InstVisitor methods
+  void visitBinaryOperator(llvm::BinaryOperator &I);
+  void visitCmpInst(llvm::CmpInst &I);
+  void visitCastInst(llvm::CastInst &I);
+  void visitSelectInst(llvm::SelectInst &I);
+  void visitGetElementPtrInst(llvm::GetElementPtrInst &I);
+  void visitExtractElementInst(llvm::ExtractElementInst &I);
+  void visitInsertElementInst(llvm::InsertElementInst &I);
+  void visitShuffleVectorInst(llvm::ShuffleVectorInst &I);
+  void visitExtractValueInst(llvm::ExtractValueInst &I);
+  void visitInsertValueInst(llvm::InsertValueInst &I);
+  void visitLoadInst(llvm::LoadInst &I);
+  void visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I);
+  void visitVAArgInst(llvm::VAArgInst &I);
+  void visitPHINode(llvm::PHINode &I);
+  void visitCallSite(llvm::CallSite CS);
+  void visitIntrinsicInst(llvm::IntrinsicInst &I);
 };
 
 }
