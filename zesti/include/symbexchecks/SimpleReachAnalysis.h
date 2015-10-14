@@ -1,6 +1,7 @@
 #ifndef SIMPLEREACHANALYSIS_H
 #define SIMPLEREACHANALYSIS_H
 
+#include "symbexchecks/PostDominanceFrontiers.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InstVisitor.h"
 #include "llvm/Pass.h"
@@ -32,10 +33,14 @@ private:
   };
 
   // Useful type definitions.
+  typedef std::map<const llvm::Function *, PostDominanceFrontiers> PDFMap;
   typedef std::set<struct MemoryWrite, mwcomp> MemoryWriteSet;
   typedef std::set<const llvm::Function *> FunctionSet;
   typedef std::set<const llvm::Value *> ValueSet;
   typedef std::map<const llvm::Value *, ValueSet> ReachGraph;
+
+  // Map from functions to their post dominance frontiers.
+  PDFMap PostDominanceFrontiers;
 
   // Set of memory write instructions.
   MemoryWriteSet MemoryWrites;
@@ -56,6 +61,11 @@ private:
   // into the MemoryWrites field of this class. Requires
   // collectAddressTaken to have been called before.
   void collectMemoryWrites(llvm::Module &M);
+
+  // Helper method that calculates the post dominance frontier sets of
+  // the basic blocks of each function in the module. The sets are
+  // stored into the PostDominanceFrontiers field of this class.
+  void calculatePostDominanceFrontiers(llvm::Module &M);
   
   // This method populates the initial reachability graph found in
   // the field OneStepReachGraph.

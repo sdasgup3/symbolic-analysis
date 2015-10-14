@@ -19,6 +19,7 @@ static RegisterPass<SimpleReachAnalysis> SimpleReachAnalysisPI(
 
 void  SimpleReachAnalysis::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequired<PostDominatorTree>();
 }
 
 const char *SimpleReachAnalysis::getPassName() const {
@@ -33,10 +34,12 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
   MemoryWrites.clear();
   AddressTakenFunctions.clear();
   OneStepReachGraph.clear();
+  PostDominanceFrontiers.clear();
 
   // Init pass.
   collectAddressTakenFunctions(M);
   collectMemoryWrites(M);
+  calculatePostDominanceFrontiers(M);
   initOneStepReachGraph(M);
 
   errs() << "One Step Reach Graph\n";
@@ -186,6 +189,10 @@ void SimpleReachAnalysis::collectMemoryWrites(Module &M) {
       } 
     }
   }
+}
+
+void SimpleReachAnalysis::calculatePostDominanceFrontiers(Module &M) {
+
 }
 
 void SimpleReachAnalysis::initOneStepReachGraph(Module &M) {
