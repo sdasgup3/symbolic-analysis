@@ -40,7 +40,7 @@ private:
   typedef std::map<const llvm::Value *, ValueSet> ReachGraph;
 
   // Map from functions to their post dominance frontiers.
-  PDFMap PostDominanceFrontiers;
+  PDFMap PDFs;
 
   // Set of memory write instructions.
   MemoryWriteSet MemoryWrites;
@@ -86,6 +86,7 @@ private:
   // Print utilities
   void printValueSet(llvm::raw_ostream &O, const ValueSet &S) const;
   void printReachGraph(llvm::raw_ostream &O, const ReachGraph &G) const;
+  void printPostDominanceFrontiers(llvm::raw_ostream &O) const;
   
 public:
   // Pass related

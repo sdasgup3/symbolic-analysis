@@ -34,17 +34,21 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
   MemoryWrites.clear();
   AddressTakenFunctions.clear();
   OneStepReachGraph.clear();
-  PostDominanceFrontiers.clear();
+  PDFs.clear();
 
-  // Init pass.
+  // Initialize pass.
   collectAddressTakenFunctions(M);
   collectMemoryWrites(M);
-  calculatePostDominanceFrontiers(M);
-  initOneStepReachGraph(M);
 
+  calculatePostDominanceFrontiers(M);
+  errs() << "Post Dominance Frontiers\n";
+  printPostDominanceFrontiers(errs());
+
+  initOneStepReachGraph(M);
   errs() << "One Step Reach Graph\n";
   printReachGraph(errs(), OneStepReachGraph);
 
+  // Compute inputs that reach pointers.
   PointerCollector PC;
   PC.visit(M);
 
@@ -61,27 +65,8 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
   getReachingInputs(Values, Inputs, M);
   errs() << "Reaching Inputs\n";
   printValueSet(errs(), Inputs);
-/*
-  findReachingInputs(M);
 
-  Module::iterator funIt = M.begin(), funItEnd = M.end();
-  for (; funIt != funItEnd; ++funIt) {
-    Function &F = *funIt;
-    Function::iterator bbIt = F.begin(), bbItEnd = F.end();
-    for (; bbIt != bbItEnd; ++bbIt) {
-      BasicBlock &BB = *bbIt;
-      BasicBlock::iterator instIt = BB.begin(), instItEnd = BB.end();
-      for (; instIt != instItEnd; ++instIt) {
-        Instruction &I = *instIt;
-        if (LoadInst *loadInst = dyn_cast<LoadInst>(&I)) {
-          Value *ptr = loadInst->getPointerOperand();
-          printInputs(errs(), ptr);
-        }
-      } 
-    }
-  }
-*/
-  // does not modify module.
+  // Does not modify module.
   return false;
 }
 
@@ -192,7 +177,16 @@ void SimpleReachAnalysis::collectMemoryWrites(Module &M) {
 }
 
 void SimpleReachAnalysis::calculatePostDominanceFrontiers(Module &M) {
-
+  Module::iterator funIt = M.begin(), funItEnd = M.end();
+  for (; funIt != funItEnd; ++funIt) {
+    Function &F = *funIt;
+    if (!F.isDeclaration()) {
+      PostDominatorTree &PDT = getAnalysis<PostDominatorTree>(F);
+      PostDominanceFrontiers PDF;
+      PDF.calculate(PDT);
+      PDFs.insert(std::pair<const Function *, PostDominanceFrontiers>(&F, PDF));
+    }
+  }
 }
 
 void SimpleReachAnalysis::initOneStepReachGraph(Module &M) {
@@ -468,6 +462,20 @@ void SimpleReachAnalysis::printReachGraph(raw_ostream &O,
     O << "Values affecting " << *v << "\n";
     O << "------------------------------------------------------\n";
     printValueSet(O, VS);
+    O << "------------------------------------------------------\n";
+  }
+}
+
+void SimpleReachAnalysis::printPostDominanceFrontiers(raw_ostream &O) const {
+  PDFMap::const_iterator it = PDFs.begin(), itEnd = PDFs.end();
+  for (; it != itEnd; ++it) {
+    const Function *f = it->first;
+    const PostDominanceFrontiers &PDF = it->second;
+
+    O << "\n======================================================\n";
+    O << "Post Dominance Frontiers for Function " << f->getName() << "\n";
+    O << "------------------------------------------------------\n";
+    PDF.print(O);
     O << "------------------------------------------------------\n";
   }
 }

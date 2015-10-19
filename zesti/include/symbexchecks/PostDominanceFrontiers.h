@@ -14,12 +14,9 @@ public:
   typedef std::map<llvm::BasicBlock*, DomSetType> DomSetMapType;
 
 private:
-  llvm::PostDominatorTree *thisPDT;
   DomSetMapType Frontiers;
 
 public:
-  PostDominanceFrontiers(llvm::PostDominatorTree *thisPDT);
-
   // Interface for accessing the post dominance frontiers
   typedef DomSetMapType::iterator iterator;
   typedef DomSetMapType::const_iterator const_iterator;
@@ -31,10 +28,14 @@ public:
   const_iterator find(llvm::BasicBlock *B) const;
 
   // This is to be called to calculate the post dominance frontiers.
-  void calculate(void);
+  void calculate(const llvm::PostDominatorTree &PDT);
+
+  // Printing
+  void print(llvm::raw_ostream &O) const;
 
 private:
-  void calculate(const llvm::DomTreeNode *n);
+  void calculate(const llvm::PostDominatorTree &PDT,
+                 const llvm::DomTreeNode *n);
 };
 
 }

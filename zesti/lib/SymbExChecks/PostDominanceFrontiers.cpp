@@ -5,10 +5,6 @@ using namespace llvm;
 
 namespace symbexchecks {
 
-PostDominanceFrontiers::PostDominanceFrontiers(PostDominatorTree *pdt) {
-  thisPDT = pdt;
-}
-
 PostDominanceFrontiers::iterator
 PostDominanceFrontiers::begin() { return Frontiers.begin(); }
 
@@ -27,20 +23,19 @@ PostDominanceFrontiers::find(BasicBlock *B) { return Frontiers.find(B); }
 PostDominanceFrontiers::const_iterator
 PostDominanceFrontiers::find(BasicBlock *B) const { return Frontiers.find(B); }
 
-void PostDominanceFrontiers::calculate(void) {
+void PostDominanceFrontiers::calculate(const PostDominatorTree &PDT) {
   Frontiers.clear();
-  assert(thisPDT);
-
-  calculate(thisPDT->getRootNode());
+  calculate(PDT, PDT.getRootNode());
 }
 
-void PostDominanceFrontiers::calculate(const DomTreeNode *n) {
+void PostDominanceFrontiers::calculate(const PostDominatorTree &PDT,
+                                       const DomTreeNode *n) {
 
   // First we visit the children for a bottom up traversal of the
   // post dominator tree.
   DomTreeNode::const_iterator it = n->begin(), itEnd = n->end();
   for (; it != itEnd; ++it) {
-    calculate(*it);
+    calculate(PDT, *it);
   }
 
   // Then we visit the node itself. If this is a dummy root node
@@ -54,7 +49,7 @@ void PostDominanceFrontiers::calculate(const DomTreeNode *n) {
   for (; pi != piEnd; ++pi) {
     BasicBlock *predBB = *pi;
     // does n immediately postdominate this predecessor?
-    if (thisPDT->getNode(predBB)->getIDom() != n) DS.insert(predBB);
+    if (PDT.getNode(predBB)->getIDom() != n) DS.insert(predBB);
   }
 
   // Calculate the DF_up: loop over post dominator tree children.
@@ -67,8 +62,23 @@ void PostDominanceFrontiers::calculate(const DomTreeNode *n) {
     DomSetType::iterator it2 = ChildDS.begin(), it2End = ChildDS.end();
     for (; it2 != it2End; ++it2) {
       BasicBlock *bb2 = *it2;
-      if (thisPDT->getNode(bb2)->getIDom() != n) DS.insert(bb2);
+      if (PDT.getNode(bb2)->getIDom() != n) DS.insert(bb2);
     }
+  }
+}
+
+void PostDominanceFrontiers::print(raw_ostream &O) const {
+  DomSetMapType::const_iterator it = Frontiers.begin(),
+                                itEnd = Frontiers.end();
+  for (; it != itEnd; ++it) {
+    const BasicBlock *bb = it->first;
+    const DomSetType &DS = it->second;
+    O << "PDF( " << bb->getName() << " ) = { ";
+    DomSetType::const_iterator it2 = DS.begin(), it2End = DS.end();
+    for (; it2 != it2End; ++it2) {
+      O << (*it2)->getName() << " ";
+    }
+    O << "}\n\n";
   }
 }
 
