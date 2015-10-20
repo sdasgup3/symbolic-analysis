@@ -297,7 +297,46 @@ void SimpleReachAnalysis::visitPHINode(PHINode &I) {
 
   for (unsigned i = 0; i < I.getNumIncomingValues(); ++i)
     Successors.insert(I.getIncomingValue(i));
-  // TODO: handle control deps
+
+  // handle control deps
+  Function *parentFunc = I.getParent()->getParent();
+  PostDominanceFrontiers &PDF = PDFs.at(parentFunc);
+
+  PostDominanceFrontiers::DomSetType AllControlDeps;
+  PHINode::block_iterator phiIt = I.block_begin(), phiItEnd = I.block_end();
+  for (; phiIt != phiItEnd; ++phiIt) {
+    BasicBlock *bb = *phiIt;
+    PostDominanceFrontiers::iterator pdfIt = PDF.find(bb);
+    assert(pdfIt != PDF.end());
+    PostDominanceFrontiers::DomSetType &ControlDeps = pdfIt->second;
+    AllControlDeps.insert<PostDominanceFrontiers::DomSetType::iterator>(
+      ControlDeps.begin(), ControlDeps.end());
+  }
+
+  PostDominanceFrontiers::DomSetType::iterator
+    it = AllControlDeps.begin(), itEnd = AllControlDeps.end();
+  for (; it != itEnd; ++it) {
+    TerminatorInst *inst = (*it)->getTerminator();
+
+    if (BranchInst * brInst = dyn_cast<BranchInst>(inst)) {
+      if (brInst->isConditional()) Successors.insert(brInst->getCondition());
+    }
+    else if (IndirectBrInst * inbrInst = dyn_cast<IndirectBrInst>(inst)) {
+      Successors.insert(inbrInst->getAddress());
+    }
+    else if (SwitchInst * swInst = dyn_cast<SwitchInst>(inst)) {
+      Successors.insert(swInst->getCondition());
+    }
+    else if (isa<InvokeInst>(inst)) {
+      // do nothing: we are missing some dependencies here.
+    }
+    else {
+      // remaining cases (ReturnInst, ResumeInst, Unreachable) terminate
+      // basic blocks without outgoing edges, so they should not appear
+      // here
+      assert(false);
+    }
+  }
 }
 
 void SimpleReachAnalysis::visitCallSite(CallSite CS) {
@@ -340,7 +379,7 @@ void SimpleReachAnalysis::visitFunctionCall(const Function *f, CallSite CS) {
   }
 
   // if there is a return value, we consider it depends on any value found
-  // as an argument of a ret instruction insdie the called function
+  // as an argument of a ret instruction inside the called function
   if (!CS.getType()->isVoidTy()) {
     Function::const_iterator bbIt = f->begin(), bbItEnd = f->end();
     for (; bbIt != bbItEnd; ++bbIt) {
