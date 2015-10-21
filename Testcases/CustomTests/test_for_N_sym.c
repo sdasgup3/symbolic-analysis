@@ -5,16 +5,12 @@ int main(int argc, char** argv ) {
   int i = 3 , N, sum = 0 ;
 
   klee_make_symbolic(&N, sizeof(N), "N");
-  //klee_assume(N > 1 & N < 10);
-  klee_assume(N > 1);
+  klee_assume(N > 1 & N < 10);
+  //klee_assume(N > 1);
 
   for(i=  3 ; i< N; i++)  {
-    printf ("In For ");
+    sum += i; 
   }
-    printf ("Out For ");
-  
-  
-    
 
   return sum;
 }
