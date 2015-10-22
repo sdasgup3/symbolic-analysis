@@ -17,9 +17,10 @@ int foo(int x, int a, int b, int c) {
 
 
 int main() {
-  int x;
+  int x=1;
   int a,b,c;
   klee_make_symbolic(&x, sizeof(x), "X");
+  
 
   return foo(x,a,b,c);
 }
