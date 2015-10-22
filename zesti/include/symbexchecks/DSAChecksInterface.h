@@ -27,6 +27,11 @@ public:
   bool mustAlias(const llvm::Value *V1, const llvm::Value *V2);
   PtrList &getMayNotAliasList(const llvm::Value *V);
   PtrList &getMustAliasList(const llvm::Value *V);
+
+  void   setPtrPairCache(const llvm::Value *V, bool updateMustList, int index, bool value);
+  void   dumpPtrPairCacheInfo(llvm::raw_ostream &);
+  void   updateSymMap(const llvm::Value *V, bool , bool);
+  void   dumpSymMap(llvm::raw_ostream &);
 };
 
 }

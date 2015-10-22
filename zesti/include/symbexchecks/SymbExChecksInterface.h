@@ -34,6 +34,13 @@ public:
   const PointerCollector::PointerSet &
   getPointerSetForFunction(const llvm::Function *F);
   const PointerCollector::PointerSet &getGlobalPointerSet(void);
+
+  //Data structures to collect status on pointers
+  virtual void   setPtrPairCache(const llvm::Value *V, bool updateMustList, int index, bool value)=0;
+  virtual void   dumpPtrPairCacheInfo(llvm::raw_ostream &)=0;
+  virtual void   updateSymMap(const llvm::Value *V,  bool , bool) = 0;
+  virtual void   dumpSymMap(llvm::raw_ostream &)=0;
+
 };
 
 }
