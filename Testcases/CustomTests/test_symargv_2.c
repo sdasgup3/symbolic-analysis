@@ -5,18 +5,18 @@
  */
 
 int main(int argc, char * argv[]) {
-  char buf[10];
+  char buf[2];
   int i = 1;
 
   FILE* fp = fopen(argv[1], "r");
-  read(fp, buf, 1);
+  read(fp, buf, 2);
 
 
 
   if(buf[0] == 0 ) {
-    buf[0] = 's';
+    buf[1] = 's';
   } else {
-    buf[0] = 'e';
+    buf[1] = 'e';
   }
   return 0;
 }

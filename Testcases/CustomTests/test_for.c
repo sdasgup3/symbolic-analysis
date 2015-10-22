@@ -8,11 +8,8 @@ int main() {
   klee_assume(i > -1);
 
   for( ; i< N; i++)  {
-    //printf ("In For (i,N) = (%d %d)\n",i, N);
-    printf ("In For ");
-    //sum += i;
+    sum += i;
   }
-    printf ("Out For ");
   
 
   return i;
