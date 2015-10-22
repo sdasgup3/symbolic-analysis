@@ -104,27 +104,38 @@ bool AAChecksInterface::runOnModule(Module &M) {
           for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
             const Value *ptr = *ptrsIt;
             if (mayAlias(base, ptr) == false) {
-	      //Two pointers P1, P2 need to be different for mayAlias(P1,P2) to be false.
-	      assert(base != ptr && "Pointers base, ptr need to be different for mayAlias(base,ptr) to be false");
+              //Two pointers P1, P2 need to be different for mayAlias(P1,P2)
+              //to be false.
+              assert(base != ptr && "Pointers base, ptr need to be different "
+                                    "for mayAlias(base,ptr) to be false");
 
-              //H2: Two different alloca instruction will trivially not be alias. No need to check it.
-              //H2: Two different global variables  will trivially not be alias. No need to check it.
-	      if(base != ptr && ( (true == isa<AllocaInst>(ptr) && true == isa<AllocaInst>(base)) ||
-		  (true == isa<GlobalVariable>(ptr) && true == isa<GlobalVariable>(base)) )) {
-	        continue;
-	      }
+              //H2: Two different alloca instruction will trivially not 
+              //be alias. No need to check it.
+              //H2: Two different global variables  will trivially not
+              //be alias. No need to check it.
+              if (base != ptr && ( (true == isa<AllocaInst>(ptr) &&
+                                    true == isa<AllocaInst>(base)) ||
+                                   (true == isa<GlobalVariable>(ptr) &&
+                                    true == isa<GlobalVariable>(base)) )) {
+                continue;
+              }
 
               mayNotList.push_back(ptr);
             }
-            if (mustAlias(base, ptr) == true) {
-	      //mustAlias(P1,P2) should not  be true if both are different allocas or both are different globals.	    
-	      assert(((base == ptr) || 
-	          !((true == isa<AllocaInst>(ptr) && true == isa<AllocaInst>(base))  ||
-	          (true == isa<GlobalVariable>(ptr) && true == isa<GlobalVariable>(base))))  && 
-	          "Both base and ptr cannot to allocates or globasl for mustAlias(base,ptr) to be true");
 
-	      //H1: mustAlias(ptr,ptr) is trivially true. No need to check it.
-	      if(base == ptr) continue;
+            if (mustAlias(base, ptr) == true) {
+              //mustAlias(P1,P2) should not  be true if both are
+              //different allocas or both are different globals.	    
+              assert(((base == ptr) ||
+                     !((true == isa<AllocaInst>(ptr) &&
+                        true == isa<AllocaInst>(base))  ||
+                       (true == isa<GlobalVariable>(ptr) &&
+                        true == isa<GlobalVariable>(base))))  && 
+                     "Both base and ptr cannot to allocates or globals "
+                     "for mustAlias(base,ptr) to be true");
+
+              //H1: mustAlias(ptr,ptr) is trivially true. No need to check it.
+              if(base == ptr) continue;
 
               mustList.push_back(ptr);
             }
@@ -144,13 +155,17 @@ bool AAChecksInterface::runOnModule(Module &M) {
     for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
       const Value *ptr = *ptrsIt;
       if (mayAlias(base, ptr) == false) {
-	//Two pointers P1, P2 need to be different for mayAlias(P1,P2) to be false.
-	assert(base != ptr && "Pointers base, ptr need to be different for mayAlias(base,ptr) to be false");
+        //Two pointers P1, P2 need to be different for mayAlias(P1,P2)
+        //to be false.
+        assert(base != ptr && "Pointers base, ptr need to be different "
+                              "for mayAlias(base,ptr) to be false");
 
-        //H2: Two different global variables  will trivially not be alias. No need to check it.
-	if(base != ptr && (true == isa<GlobalVariable>(ptr) && true == isa<GlobalVariable>(base))) {
-	  continue;
-	}
+        //H2: Two different global variables  will trivially not be
+        //alias. No need to check it.
+        if(base != ptr && (true == isa<GlobalVariable>(ptr) &&
+           true == isa<GlobalVariable>(base))) {
+          continue;
+        }
 
         mayNotList.push_back(ptr);
       }
@@ -167,13 +182,15 @@ bool AAChecksInterface::runOnModule(Module &M) {
     for (; ptrsIt != ptrsItEnd; ++ptrsIt) {
       const Value *ptr = *ptrsIt;
       if (mustAlias(base, ptr) == true) {
-	//mustAlias(P1,P2) can never be true if both are different allocas.
-	assert(((base  == ptr) || 
-	    !(true == isa<GlobalVariable>(ptr) && true == isa<GlobalVariable>(base))) &&
-            "Both base and ptr cannot to allocates or globasl for mustAlias(base,ptr) to be true");
+        //mustAlias(P1,P2) can never be true if both are different allocas.
+        assert(((base  == ptr) || 
+                !(true == isa<GlobalVariable>(ptr) &&
+                  true == isa<GlobalVariable>(base))) &&
+               "Both base and ptr cannot to allocates or globals "
+               "for mustAlias(base,ptr) to be true");
 
-	//H1: mustAlias(ptr,ptr) is trivially true. No need to check it.
-	if(base == ptr) continue;
+        //H1: mustAlias(ptr,ptr) is trivially true. No need to check it.
+        if(base == ptr) continue;
 
         mustList.push_back(ptr);
       }
