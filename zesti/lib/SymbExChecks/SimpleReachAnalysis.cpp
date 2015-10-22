@@ -4,7 +4,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CallSite.h"
-#include "llvm/Support/raw_ostream.h"
 #include <stack>
 
 using namespace llvm;
@@ -41,12 +40,12 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
   collectMemoryWrites(M);
 
   calculatePostDominanceFrontiers(M);
-  errs() << "Post Dominance Frontiers\n";
-  printPostDominanceFrontiers(errs());
+  //errs() << "Post Dominance Frontiers\n";
+  //printPostDominanceFrontiers(errs());
 
   initOneStepReachGraph(M);
-  errs() << "One Step Reach Graph\n";
-  printReachGraph(errs(), OneStepReachGraph);
+  //errs() << "One Step Reach Graph\n";
+  //printReachGraph(errs(), OneStepReachGraph);
 
   // Compute inputs that reach pointers.
   PointerCollector PC;
@@ -63,8 +62,8 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
                                                           Ps.end());
   }
   getReachingInputs(Values, Inputs, M);
-  errs() << "Reaching Inputs\n";
-  printValueSet(errs(), Inputs);
+  //errs() << "Reaching Inputs\n";
+  //printValueSet(errs(), Inputs);
 
   // Does not modify module.
   return false;

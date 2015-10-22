@@ -34,6 +34,7 @@
 #include "symbexchecks/AAChecksInterface.h"
 #include "symbexchecks/DSAChecksInterface.h"
 #include "symbexchecks/SimpleReachAnalysis.h"
+#include "symbexchecks/SymbExChecksPrepare.h"
 
 
 // FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
@@ -1783,9 +1784,18 @@ int main(int argc, char **argv, char **envp) {
   // checking
   PassManager Passes;
   if (PerformAliasAnalysisChecks) {
+    // Add a preparation pass that transforms the module by
+    // adding calls to klee_make_symbolic and other ways.
+    // Also add each requirements.
+    Passes.add(createPostDomTree());
+    Passes.add(new symbexchecks::SimpleReachAnalysis());
+    Passes.add(new symbexchecks::SymbExChecksPrepare());
+
+    // Add a pass serving as interface between the symbolic execution
+    // engine and the alias analysis result.
     symbexchecks::SymbExChecksInterface *aainterface;
    
-    if(EnableDSAAliasAnalysis) {
+    if (EnableDSAAliasAnalysis) {
       aainterface = addDSAPasses(Passes, mainModule);
     } else {
       aainterface = addAliasAnalysisPasses(Passes, mainModule);
@@ -1794,13 +1804,7 @@ int main(int argc, char **argv, char **envp) {
     if (!aainterface)
       klee_error("Unable to add requested pointer/alias analysis");
 
-    // Also add a reachability analysis pass to assist choosing
-    // symbolic variables.
-    //Passes.add(createPostDomTree());
-    //symbexchecks::SimpleReachAnalysis *simplereach =
-    //  new symbexchecks::SimpleReachAnalysis();
-    //Passes.add(simplereach);
-
+    // Run passes.
     Passes.run(*mainModule);
 
     interpreter->setAliasAnalysisResult(aainterface);
