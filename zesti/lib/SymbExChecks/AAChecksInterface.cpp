@@ -98,6 +98,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
 
           PtrList &mayNotList = MayNotAliasCache[base];
           PtrList &mustList = MustAliasCache[base];
+          isPointerSymMap[base] = std::pair<bool, bool>(false, false);
 
           symbexchecks::PointerCollector::PointerSet::iterator
             ptrsIt = Pointers.begin(), ptrsItEnd = Pointers.end();
@@ -121,6 +122,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
               }
 
               mayNotList.push_back(ptr);
+              isPointerSymMap[ptr] = std::pair<bool, bool>(false, false);
             }
 
             if (mustAlias(base, ptr) == true) {
@@ -138,6 +140,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
               if(base == ptr) continue;
 
               mustList.push_back(ptr);
+              isPointerSymMap[ptr] = std::pair<bool, bool>(false, false);
             }
           }
         }
@@ -168,6 +171,7 @@ bool AAChecksInterface::runOnModule(Module &M) {
         }
 
         mayNotList.push_back(ptr);
+        isPointerSymMap[ptr] = std::pair<bool, bool>(false, false);
       }
     }
   }
@@ -193,8 +197,32 @@ bool AAChecksInterface::runOnModule(Module &M) {
         if(base == ptr) continue;
 
         mustList.push_back(ptr);
+        isPointerSymMap[ptr] = std::pair<bool, bool>(false, false);
       }
     }
+  }
+
+  /*Initializing the auxiallary Caches*/
+  cacheIt = MayNotAliasCache.begin();
+  cacheItEnd = MayNotAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+   PtrList &mayNotList = cacheIt->second;
+
+    int size = mayNotList.size();
+    std::vector<bool> &PtrPairList = MayNotPtrPairCache[base];
+    PtrPairList.resize(size,false);
+  }
+
+  cacheIt = MustAliasCache.begin();
+  cacheItEnd = MustAliasCache.end();
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mustList = cacheIt->second;
+
+    int size = mustList.size();
+    std::vector<bool> &PtrPairList = MustPtrPairCache[base];
+    PtrPairList.resize(size,false);
   }
 
   // does not modify module.
@@ -233,5 +261,104 @@ AAChecksInterface::getMustAliasList(const Value *V) {
   assert(it != MustAliasCache.end());
   return it->second;
 }
+
+void 
+AAChecksInterface::setPtrPairCache(const llvm::Value *base, bool updateMustList, int index, bool value) {
+
+  if(false == value) return;
+
+  if(true == updateMustList) {
+    std::vector<bool> &mustList = MustPtrPairCache[base];
+    mustList[index] = value;
+  } else {  
+    std::vector<bool> &mayNotList = MayNotPtrPairCache[base];
+    mayNotList[index] = value;
+  }
+}
+
+void
+AAChecksInterface::dumpPtrPairCacheInfo(llvm::raw_ostream &O) {
+
+  assert(MayNotAliasCache.size() == MayNotPtrPairCache.size() && "MayNotAliasCache.size() != MayNotPtrPairCache.size()");
+  assert(MustAliasCache.size()   == MustPtrPairCache.size() && "MustAliasCache.size() != MustPtrPairCache.size()");
+
+  AliasCache::iterator cacheIt = MayNotAliasCache.begin();
+  AliasCache::iterator cacheItEnd = MayNotAliasCache.end();
+  int maynotpairs = 0;
+  int checked_maynotpairs = 0;
+
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mayNotList = cacheIt->second;
+
+    std::vector<bool> &auxList = MayNotPtrPairCache[base];
+    assert(mayNotList.size() == auxList.size() && "mayNotList.size()  != auxList.size()");
+
+    maynotpairs += mayNotList.size(); 
+    for(unsigned  i = 0; i < auxList.size() ; i ++) {
+      if(true == auxList[i]) {
+        checked_maynotpairs ++;   
+      }
+    }
+  }
+
+  O << "Percentage checked maynot pairs :" << checked_maynotpairs << "/" << maynotpairs << " = " <<checked_maynotpairs*100/maynotpairs << "%" << "\n";
+
+  cacheIt = MustAliasCache.begin();
+  cacheItEnd = MustAliasCache.end();
+  int mustpairs = 0;
+  int checked_mustpairs = 0;
+
+  for (; cacheIt != cacheItEnd; ++cacheIt) {
+    const Value * base = cacheIt->first;
+    PtrList &mustList = cacheIt->second;
+
+    std::vector<bool> &auxList = MustPtrPairCache[base];
+    assert(mustList.size() == auxList.size() && "mustList.size()  != auxList.size()");
+
+    mustpairs += mustList.size(); 
+    for(unsigned  i = 0; i < auxList.size() ; i ++) {
+      if(true == auxList[i]) {
+        checked_mustpairs++;
+      }
+    }
+  }
+
+  O << "Percentage checked must pairs :" << checked_mustpairs << "/" << mustpairs << " = " << (checked_mustpairs*100)/mustpairs << "%" << "\n";
+
+  O << "Percentage checked total pairs :" << ((checked_maynotpairs + checked_mustpairs)*100)/(maynotpairs + mustpairs) << "%" << "\n";
+
+}
+
+void   
+AAChecksInterface::updateSymMap(const llvm::Value *V, bool isSym, bool isMultiResPtr) {
+  isPointerSymMap[V].first  = isSym;
+  isPointerSymMap[V].second =  isMultiResPtr;
+}
+ 
+void   
+AAChecksInterface::dumpSymMap(llvm::raw_ostream &rso) {
+  unsigned int size_isPointerSymMap = isPointerSymMap.size();
+  unsigned int count = 0;
+  unsigned int singleRes = 0;
+  unsigned int multiRes = 0;
+  symPtrMap::iterator symIt = isPointerSymMap.begin();
+  symPtrMap::iterator symItE = isPointerSymMap.end();
+  
+  for (; symIt != symItE; ++symIt) {
+    if(true == symIt->second.first) {
+      count ++;
+      if(true == symIt->second.second) {
+        multiRes++;       
+      } else {
+        singleRes++;
+      }
+    }
+  }
+  rso << "Percentage Sym Pointers: "          << count      << "/" <<  size_isPointerSymMap << " =  " << (count*100)/size_isPointerSymMap << "\n";
+  rso << "\tPercentage single-res Pointers: " << singleRes  << "/" <<  count << " =  " << (singleRes*100)/count << "\n";
+  rso << "\tPercentage multi-res Pointers: "  << multiRes   << "/" <<  count << " =  " << (multiRes*100)/count << "\n";
+}
+
 
 }

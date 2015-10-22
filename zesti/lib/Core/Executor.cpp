@@ -112,6 +112,8 @@ using namespace klee;
 bool UseConcretePath;
 bool ReserveFds;
 bool ZestSkipChecks;
+unsigned int mayNotCounter  = 0;
+unsigned int mustCounter    = 0;
 
 /* also used by the Zest Searcher (lib/Core/Searcher.cpp) */
 unsigned PatchCheckBefore;
@@ -3894,6 +3896,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
   const symbexchecks::SymbExChecksInterface::PtrList &MustPointers =
     aainterface->getMustAliasList(base);
 
+  if (!isa<ConstantExpr>(address)) {
+    bool isMultiResPtr = (rl.size() > 1);
+    aainterface->updateSymMap(base, true, isMultiResPtr);
+  }
+
   // Perform an alias check with each found pointer.
   bool allChecksSucceeded = true;
   for (unsigned iter = 0; iter < 2; ++iter) {
@@ -3902,6 +3909,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
     const symbexchecks::SymbExChecksInterface::PtrList &Pointers =
       mustAlias ? MustPointers : MayNotPointers;
 
+    int counter = 0;
     for (unsigned i = 0; i < Pointers.size(); ++i) {
       const Value *ptr = Pointers[i];
 
@@ -3935,6 +3943,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       else
         assert(false && "Unexpected case for local pointer!");
 
+
       ResolutionList ptrRl;
       solver->setTimeout(stpTimeout);
       if (state.addressSpace.resolve(state, solver, ptrAddress, ptrRl,
@@ -3942,6 +3951,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
         terminateStateEarly(state, "Query timed out (resolve).");
       }
       solver->setTimeout(0);
+
+      if (!isa<ConstantExpr>(ptrAddress)) {
+        bool isMultiResPtr = (ptrRl.size() > 1);
+        aainterface->updateSymMap(ptr, true, isMultiResPtr);
+      }
 
       // Perform the checks.
       if (DebugPrintAAChecks) {
@@ -3966,6 +3980,7 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
 
           if (mayNotAlias && (ptrMObj == baseMObj)) checkSatisfied = false;
           if (mustAlias && (ptrMObj != baseMObj)) checkSatisfied = false;
+          counter++;
         }
       }
 
@@ -3975,6 +3990,8 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
                  "a memory object (maybe a function pointer).\n";
         }
         continue;
+      } else {
+        aainterface->setPtrPairCache(base, mustAlias, i, true);
       }
 
       if (checkSatisfied) {
@@ -3990,6 +4007,11 @@ Executor::aliasCheckerCached(ExecutionState &state, ref<Expr> address,
       }
     }
 
+    if(mustAlias) {
+      mustCounter += counter;	      
+    } else {
+      mayNotCounter += counter;	      
+    }
   }
 
   if (!allChecksSucceeded) {
@@ -4388,6 +4410,19 @@ int Executor::runFunctionAsMain(Function *f,
   state->ptreeNode = processTree->root;
   closeFirstFds();
   run(*state);
+
+  /* Status Printing*/
+  if (interpreterOpts.PerformAliasAnalysisChecks) {
+    klee_message("AACHECKS:");
+    klee_message("Total Dynamic checks:- maynot: %u   must: %u", mayNotCounter, mustCounter);
+
+    std::string info;
+    llvm::raw_string_ostream rso(info);
+    aainterface->dumpSymMap(rso);
+    aainterface->dumpPtrPairCacheInfo(rso);
+    klee_message("%s", rso.str().c_str());
+  }
+
   delete processTree;
   processTree = 0;
 

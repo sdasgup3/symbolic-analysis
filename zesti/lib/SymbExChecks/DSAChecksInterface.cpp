@@ -105,4 +105,20 @@ DSAChecksInterface::getMustAliasList(const Value *V) {
   return l;
 }
 
+void
+DSAChecksInterface::setPtrPairCache(const llvm::Value *V, bool updateMustList, int index, bool value) {
+}
+
+void
+DSAChecksInterface::dumpPtrPairCacheInfo(llvm::raw_ostream &O) {
+}
+
+void   
+DSAChecksInterface::updateSymMap(const llvm::Value *V,  bool isSym, bool isMultiResPtr) {
+}
+
+void   
+DSAChecksInterface::dumpSymMap(llvm::raw_ostream &) {
+}
+
 }
