@@ -1,14 +1,16 @@
 #include "symbexchecks/SymbExChecksPrepare.h"
 #include "symbexchecks/SimpleReachAnalysis.h"
+#include "symbexchecks/PointerCollector.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
-namespace symbexchecks {
+cl::opt<bool> EnableReach("enable-reach",
+                          cl::desc("Use reachabilty analysis to make "
+                                   "symbolic inputs that affect pointers"),
+                          cl::init(0));
 
-static cl::opt<bool> EnableReach("enable-reach", cl::init(false),
-  cl::desc("Use reachabilty analysis to make symbolic inputs that "
-           "affect pointers"));
+namespace symbexchecks {
 
 char SymbExChecksPrepare::ID;
 
@@ -18,7 +20,9 @@ static RegisterPass<SymbExChecksPrepare> SymbExChecksPreparePI(
   "symbolic execution checks", false, false);
 
 void SymbExChecksPrepare::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
-    AU.addRequired<SimpleReachAnalysis>();
+    if (EnableReach) {
+      AU.addRequired<SimpleReachAnalysis>();
+    }
 }
 
 const char *SymbExChecksPrepare::getPassName() const {
@@ -27,6 +31,30 @@ const char *SymbExChecksPrepare::getPassName() const {
 
 bool SymbExChecksPrepare::runOnModule(Module &M) {
   errs() << "SymbExChecksPrepare Runs\n!";
+
+  if (EnableReach) {
+    // Get the reachability analysis
+    SimpleReachAnalysis &RA = getAnalysis<SimpleReachAnalysis>();
+    
+    // Compute inputs that reach pointers.
+    PointerCollector PC;
+    PC.visit(M);
+
+    SimpleReachAnalysis::ValueSet Values;
+    SimpleReachAnalysis::ValueSet Inputs;
+
+    Module::iterator funIt = M.begin(), funItEnd = M.end();
+    for (; funIt != funItEnd; ++funIt) {
+      Function *f = &*funIt;
+      PointerCollector::PointerSet &Ps = PC.Pointers[f];
+      Values.insert<PointerCollector::PointerSet::iterator>(Ps.begin(),
+                                                            Ps.end());
+    }
+    RA.getReachingInputs(Values, Inputs, M);
+    errs() << "Reaching Inputs\n";
+    RA.printValueSet(errs(), Inputs);
+  }
+
   return false;
 }
 

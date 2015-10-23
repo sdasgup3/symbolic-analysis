@@ -15,6 +15,10 @@ namespace symbexchecks {
 // discovers which inputs reach a specific LLVM value.
 class SimpleReachAnalysis : public llvm::ModulePass,
                             public llvm::InstVisitor<SimpleReachAnalysis> {
+
+public:
+  typedef std::set<const llvm::Value *> ValueSet;
+
 private:
   // struct holding a memory write instruction
   struct MemoryWrite {
@@ -36,7 +40,6 @@ private:
   typedef std::map<const llvm::Function *, PostDominanceFrontiers> PDFMap;
   typedef std::set<struct MemoryWrite, mwcomp> MemoryWriteSet;
   typedef std::set<const llvm::Function *> FunctionSet;
-  typedef std::set<const llvm::Value *> ValueSet;
   typedef std::map<const llvm::Value *, ValueSet> ReachGraph;
 
   // Map from functions to their post dominance frontiers.
@@ -75,17 +78,7 @@ private:
   // the OneStepReachGraph
   void visitFunctionCall(const llvm::Function *f, llvm::CallSite CS);
 
-  // This method finds the inputs that affect the values provided
-  // in the argument Values. The found inputs are inserted into the
-  // Inputs argument.
-  void getReachingInputs(const ValueSet &Values, ValueSet &Inputs,
-                         const llvm::Module &M) const;
-
-  bool isInput(const llvm::Value *v, const llvm::Module &M) const;
-  
   // Print utilities
-  void printValueSet(llvm::raw_ostream &O, const ValueSet &S) const;
-  void printReachGraph(llvm::raw_ostream &O, const ReachGraph &G) const;
   void printPostDominanceFrontiers(llvm::raw_ostream &O) const;
   
 public:
@@ -114,6 +107,19 @@ public:
   void visitPHINode(llvm::PHINode &I);
   void visitCallSite(llvm::CallSite CS);
   void visitIntrinsicInst(llvm::IntrinsicInst &I);
+
+  // This method finds the inputs that affect the values provided
+  // in the argument Values. The found inputs are inserted into the
+  // Inputs argument.
+  void getReachingInputs(const ValueSet &Values, ValueSet &Inputs,
+                         const llvm::Module &M) const;
+
+  // Returns true for values considered inputs by the analysis.
+  bool isInput(const llvm::Value *v, const llvm::Module &M) const;
+  
+  // Print utilities
+  void printValueSet(llvm::raw_ostream &O, const ValueSet &S) const;
+  void printReachGraph(llvm::raw_ostream &O, const ReachGraph &G) const;
 };
 
 }

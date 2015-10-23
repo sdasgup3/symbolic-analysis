@@ -1,5 +1,4 @@
 #include "symbexchecks/SimpleReachAnalysis.h"
-#include "symbexchecks/PointerCollector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
@@ -38,32 +37,8 @@ bool SimpleReachAnalysis::runOnModule(Module &M) {
   // Initialize pass.
   collectAddressTakenFunctions(M);
   collectMemoryWrites(M);
-
   calculatePostDominanceFrontiers(M);
-  //errs() << "Post Dominance Frontiers\n";
-  //printPostDominanceFrontiers(errs());
-
   initOneStepReachGraph(M);
-  //errs() << "One Step Reach Graph\n";
-  //printReachGraph(errs(), OneStepReachGraph);
-
-  // Compute inputs that reach pointers.
-  PointerCollector PC;
-  PC.visit(M);
-
-  ValueSet Values;
-  ValueSet Inputs;
-
-  Module::iterator funIt = M.begin(), funItEnd = M.end();
-  for (; funIt != funItEnd; ++funIt) {
-    Function *f = &*funIt;
-    PointerCollector::PointerSet &Ps = PC.Pointers[f];
-    Values.insert<PointerCollector::PointerSet::iterator>(Ps.begin(),
-                                                          Ps.end());
-  }
-  getReachingInputs(Values, Inputs, M);
-  //errs() << "Reaching Inputs\n";
-  //printValueSet(errs(), Inputs);
 
   // Does not modify module.
   return false;

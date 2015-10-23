@@ -226,15 +226,18 @@ namespace {
                              cl::desc("Perform alias/pointer analysis checks."),
                              cl::init(0));
 
+  // SymbExChecks related flags
   cl::opt<bool>
   MakeGVSymbolic("make-gv-sym",
-                             cl::desc("Make Globals Symbolic. Need to supply 'aachecks' flag in addition to this."),
-                             cl::init(0));
+                 cl::desc("Make Globals Symbolic. Need to supply 'aachecks' "
+                          "flag in addition to this."),
+                 cl::init(0));
+
   cl::opt<bool>
   EnableDSAAliasAnalysis("dsa",
-                             cl::desc("Enable interfacing zesti with DSA alias/pointer analysis."),
-                             cl::init(0));
-                             
+                         cl::desc("Enable interfacing zesti with DSA "
+                                  "alias/pointer analysis."),
+                         cl::init(0));
 }
 
 extern cl::opt<double> MaxTime;
@@ -247,6 +250,9 @@ extern bool UseConcretePath;
 
 /* defined in lib/Core/Executor.cpp */
 extern bool ReserveFds;
+
+/* defined in lib/SymbExChecks/SymbExChecksPrepare.cpp */
+extern cl::opt<bool> EnableReach;
 
 /***/
 
@@ -1788,7 +1794,7 @@ int main(int argc, char **argv, char **envp) {
     // adding calls to klee_make_symbolic and other ways.
     // Also add each requirements.
     Passes.add(createPostDomTree());
-    Passes.add(new symbexchecks::SimpleReachAnalysis());
+    if (EnableReach) Passes.add(new symbexchecks::SimpleReachAnalysis());
     Passes.add(new symbexchecks::SymbExChecksPrepare());
 
     // Add a pass serving as interface between the symbolic execution
