@@ -356,8 +356,10 @@ AAChecksInterface::dumpSymMap(llvm::raw_ostream &rso) {
     }
   }
   rso << "Percentage Sym Pointers: "          << count      << "/" <<  size_isPointerSymMap << " =  " << (count*100)/size_isPointerSymMap << "\n";
-  rso << "\tPercentage single-res Pointers: " << singleRes  << "/" <<  count << " =  " << (singleRes*100)/count << "\n";
-  rso << "\tPercentage multi-res Pointers: "  << multiRes   << "/" <<  count << " =  " << (multiRes*100)/count << "\n";
+  if(0 != count) {
+    rso << "\tPercentage single-res Pointers: " << singleRes  << "/" <<  count << " =  " << (singleRes*100)/count << "\n";
+    rso << "\tPercentage multi-res Pointers: "  << multiRes   << "/" <<  count << " =  " << (multiRes*100)/count << "\n";
+  }
 }
 
 
