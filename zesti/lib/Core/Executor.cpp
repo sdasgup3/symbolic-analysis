@@ -104,6 +104,7 @@
 
 #include <errno.h>
 #include <cxxabi.h>
+#define StatDisplayInterval 5000
 
 using namespace llvm;
 using namespace klee;
@@ -2968,6 +2969,19 @@ void Executor::run(ExecutionState &initialState) {
                        numSeeds, numStates, addConstraintTime/1000000, constraintsAdded, (int)state.constraints.size());
         }
       }
+
+      if ((stats::instructions % StatDisplayInterval) == 0) {
+        if (interpreterOpts.PerformAliasAnalysisChecks) {
+          klee_message("AACHECKS:");
+          klee_message("Total Dynamic checks:- maynot: %u   must: %u", mayNotCounter, mustCounter);
+
+          std::string info;
+          llvm::raw_string_ostream rso(info);
+          aainterface->dumpSymMap(rso);
+          aainterface->dumpPtrPairCacheInfo(rso);
+          klee_message("%s", rso.str().c_str());
+        }
+      }
     }
 
     klee_message("seeding done (%d states remain)", (int) states.size());
@@ -3061,6 +3075,19 @@ void Executor::run(ExecutionState &initialState) {
         } else {
           atMemoryLimit = false;
         }
+      }
+    }
+
+    if ((stats::instructions % StatDisplayInterval) == 0) {
+      if (interpreterOpts.PerformAliasAnalysisChecks) {
+        klee_message("AACHECKS:");
+        klee_message("Total Dynamic checks:- maynot: %u   must: %u", mayNotCounter, mustCounter);
+
+        std::string info;
+        llvm::raw_string_ostream rso(info);
+        aainterface->dumpSymMap(rso);
+        aainterface->dumpPtrPairCacheInfo(rso);
+        klee_message("%s", rso.str().c_str());
       }
     }
     // XXX could `state' be deleted here? most searchers don't use the current
