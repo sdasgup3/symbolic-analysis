@@ -337,7 +337,7 @@ void SimpleReachAnalysis::visitCallSite(CallSite CS) {
 }
 
 void SimpleReachAnalysis::visitIntrinsicInst(IntrinsicInst &I) {
-  // TODO handle intrinsics
+  // TODO handle important intrinsics
   return;
 }
 
@@ -347,6 +347,7 @@ void SimpleReachAnalysis::visitFunctionCall(const Function *f, CallSite CS) {
   ValueSet &Successors = OneStepReachGraph[CS.getInstruction()];
 
   // if the called function is external, we consider it as an input
+  // TODO: handle important library functions
   if (f->isDeclaration()) {
     Successors.insert(f);
     return;
@@ -369,7 +370,8 @@ void SimpleReachAnalysis::visitFunctionCall(const Function *f, CallSite CS) {
  
   // each formal argument of the called function depends on the corresponding
   // actual argument
-  Function::const_arg_iterator formalIt = f->arg_begin(), formalItEnd = f->arg_end();
+  Function::const_arg_iterator formalIt = f->arg_begin(),
+                               formalItEnd = f->arg_end();
   CallSite::arg_iterator actualIt = CS.arg_begin();
   for (; formalIt != formalItEnd; ++formalIt, ++actualIt) {
     const Value *formalArg = &*formalIt;

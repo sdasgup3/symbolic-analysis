@@ -2,6 +2,8 @@
 #define SYMBEXCHECKSPREPARE_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/GlobalVariable.h"
+#include <set>
 
 namespace symbexchecks {
 
@@ -20,6 +22,11 @@ public:
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   const char *getPassName() const;
   bool runOnModule(llvm::Module &M);
+
+private:
+  bool isGlobalSymName(llvm::GlobalVariable &GV) const;
+  void makeGlobalsSymbolic(llvm::Module &M,
+                           std::set<llvm::GlobalVariable *> &Globals);
 };
 
 }

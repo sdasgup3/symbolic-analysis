@@ -1637,6 +1637,17 @@ int main(int argc, char **argv, char **envp) {
     MakeGlobalsSymbolic(mainModule);
   }
 
+  if (PerformAliasAnalysisChecks && EnableReach) {
+    PassManager Passes;
+    // Add a preparation pass that transforms the module by
+    // adding calls to klee_make_symbolic and other ways.
+    Passes.add(createPostDomTree());
+    Passes.add(new DataLayout(mainModule));
+    Passes.add(new symbexchecks::SimpleReachAnalysis());
+    Passes.add(new symbexchecks::SymbExChecksPrepare());
+    Passes.run(*mainModule);
+  }
+
   if (WithPOSIXRuntime) {
     int r = initEnv(mainModule);
     if (r != 0)
@@ -1790,13 +1801,6 @@ int main(int argc, char **argv, char **envp) {
   // checking
   PassManager Passes;
   if (PerformAliasAnalysisChecks) {
-    // Add a preparation pass that transforms the module by
-    // adding calls to klee_make_symbolic and other ways.
-    // Also add each requirements.
-    Passes.add(createPostDomTree());
-    if (EnableReach) Passes.add(new symbexchecks::SimpleReachAnalysis());
-    Passes.add(new symbexchecks::SymbExChecksPrepare());
-
     // Add a pass serving as interface between the symbolic execution
     // engine and the alias analysis result.
     symbexchecks::SymbExChecksInterface *aainterface;
